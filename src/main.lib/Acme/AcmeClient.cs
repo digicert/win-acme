@@ -62,7 +62,10 @@ namespace PKISharp.WACS.Acme
         {
             var httpClient = _proxyService.GetHttpClient();
             httpClient.BaseAddress = _settings.BaseUri;
-
+            //TODO get service directory from the configurations.
+            ServiceDirectory dir = new ServiceDirectory();
+            dir.Directory = _settings.Acme.DefaultDirectoryUri.ToString().Split(new string[] { _settings.BaseUri.ToString() }, StringSplitOptions.None)[1];
+           
             _log.Verbose("Loading ACME account signer...");
             IJwsTool signer = null;
             var accountSigner = AccountSigner;
@@ -74,10 +77,22 @@ namespace PKISharp.WACS.Acme
             _log.Verbose("Constructing ACME protocol client...");
             try
             {
-                _client = new AcmeProtocolClient(
-                    httpClient,
+                if (!string.IsNullOrEmpty(dir.Directory)) 
+                {
+                    _client = new AcmeProtocolClient(
+                    httpClient,dir,
                     signer: signer,
                     usePostAsGet: _settings.Acme.PostAsGet);
+                }
+                else
+                {
+                    _client = new AcmeProtocolClient(
+                   httpClient,
+                   signer: signer,
+                   usePostAsGet: _settings.Acme.PostAsGet);
+                }
+
+                
             }
             catch (CryptographicException)
             {
@@ -93,10 +108,20 @@ namespace PKISharp.WACS.Acme
                         KeySize = _settings.Security.RSAKeyBits
                     };
                     signer.Init();
-                    _client = new AcmeProtocolClient(
-                        httpClient,
+                    if (!string.IsNullOrEmpty(dir.Directory))
+                    {
+                        _client = new AcmeProtocolClient(
+                        httpClient, dir,
                         signer: signer,
                         usePostAsGet: _settings.Acme.PostAsGet);
+                    }
+                    else
+                    {
+                        _client = new AcmeProtocolClient(
+                            httpClient,
+                            signer: signer,
+                            usePostAsGet: _settings.Acme.PostAsGet);
+                    }
                 }
                 else
                 {

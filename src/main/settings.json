@@ -13,6 +13,8 @@
     "DefaultBaseUri": "https://acme-v02.api.letsencrypt.org/",
     "DefaultBaseUriTest": "https://acme-staging-v02.api.letsencrypt.org/",
     "DefaultBaseUriImport": "https://acme-v01.api.letsencrypt.org/",
+    "DefaultDirectoryUri": "https://acme-v02.api.letsencrypt.org/directory",
+    "DefaultDirectoryUriTest": "https://acme-staging-v02.api.letsencrypt.org/directory",
     "PostAsGet": true,
     "RetryCount": 4,
     "RetryInterval": 2

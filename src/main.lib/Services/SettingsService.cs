@@ -67,6 +67,22 @@ namespace PKISharp.WACS.Services
             }
         }
 
+        public Uri DirectoryUri
+        {
+            get
+            {
+                if (_arguments.MainArguments == null)
+                {
+                    return Acme.DefaultDirectoryUri;
+                }
+                return !string.IsNullOrEmpty(_arguments.MainArguments.DirectoryUri) ?
+                    new Uri(_arguments.MainArguments.DirectoryUri) :
+                        _arguments.MainArguments.Test ?
+                            Acme.DefaultDirectoryUriTest :
+                            Acme.DefaultDirectoryUri;
+            }
+        }
+
         /// <summary>
         /// Find and/or create path of the configuration files
         /// </summary>
@@ -230,6 +246,10 @@ namespace PKISharp.WACS.Services
             /// processing
             /// </summary>
             public int RetryInterval { get; set; } = 2;
+
+            public Uri DefaultDirectoryUri { get; set; }
+
+            public Uri DefaultDirectoryUriTest { get; set; }
         }
 
         public class ProxySettings
