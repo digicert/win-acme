@@ -39,9 +39,9 @@ namespace PKISharp.WACS.Configuration
                 .As("version")
                 .WithDescription("Show version information.");
 
-            parser.Setup(o => o.DirectoryUrl)
-                .As("directoryurl")
-                .WithDescription("Specify custom directory URL");
+            parser.Setup(o => o.DirectoryUri)
+                .As("directoryuri")
+                .WithDescription("Specify custom directory Uri");
 
 
             // Renewal
