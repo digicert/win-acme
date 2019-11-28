@@ -4,7 +4,7 @@ using static PKISharp.WACS.Services.SettingsService;
 namespace PKISharp.WACS.Services
 {
     public interface ISettingsService
-    {   
+    {
         string ExePath { get; }
         Uri BaseUri { get; }
         UiSettings UI { get; }
@@ -18,5 +18,6 @@ namespace PKISharp.WACS.Services
         ClientSettings Client { get; }
         ValidationSettings Validation { get; }
         StoreSettings Store { get; }
+        Uri DirectoryUri { get; }
     }
 }

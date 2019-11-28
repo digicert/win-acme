@@ -136,5 +136,7 @@ namespace PKISharp.WACS.Host.Services.Legacy
         public string CleanFileName(string fileName) => Path.GetInvalidFileNameChars().Aggregate(fileName, (current, c) => current.Replace(c.ToString(), string.Empty));
 
         public Uri BaseUri => _settings.BaseUri;
+
+        public Uri DirectoryUri => _settings.Acme.DefaultDirectoryUri;
     }
 }
