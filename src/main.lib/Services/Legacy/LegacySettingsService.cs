@@ -137,6 +137,6 @@ namespace PKISharp.WACS.Host.Services.Legacy
 
         public Uri BaseUri => _settings.BaseUri;
 
-        public Uri DirectoryUri => _settings.Acme.DefaultDirectoryUri;
+        public Uri DirectoryUri => _settings.DirectoryUri;
     }
 }
