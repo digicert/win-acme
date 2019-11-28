@@ -64,8 +64,8 @@ namespace PKISharp.WACS.Acme
             httpClient.BaseAddress = _settings.BaseUri;
             //TODO get service directory from the configurations.
             ServiceDirectory dir = new ServiceDirectory();
-            _log.Debug("cliurl {url}", _settings.DirectoryUri);
-            // dir.Directory = _settings.Acme.DefaultDirectoryUri.ToString().Split(new string[] { _settings.BaseUri.ToString() }, StringSplitOptions.None)[1];
+            _log.Debug("BaseUrl:{url} DirectoryUrl:{url2}", _settings.BaseUri.ToString(), _settings.DirectoryUri.ToString());
+            dir.Directory = _settings.DirectoryUri.ToString().Split(new string[] { _settings.BaseUri.ToString() }, StringSplitOptions.None)[1];
 
             _log.Verbose("Loading ACME account signer...");
             IJwsTool signer = null;
