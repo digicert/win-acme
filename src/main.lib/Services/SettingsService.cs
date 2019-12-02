@@ -90,12 +90,20 @@ namespace PKISharp.WACS.Services
         private void CreateConfigPath()
         {
             var configRoot = "";
-
+            var directoryUrlIdentfier = DirectoryUri.ToString().Split(new string[] {"/directory/"}, StringSplitOptions.None)[1];
             var userRoot = Client.ConfigurationPath;
+
             if (!string.IsNullOrEmpty(userRoot))
             {
-                configRoot = userRoot;
-
+                if (!string.IsNullOrEmpty(directoryUrlIdentfier))
+                {
+                    _log.Debug("Setting config directory path:{}", directoryUrlIdentfier);
+                    configRoot = string.Join("_", new string[] { userRoot, directoryUrlIdentfier });
+                }
+                else
+                {
+                    configRoot = userRoot;
+                }
                 // Path configured in settings always wins, but
                 // check for possible sub directories with client name
                 // to keep bug-compatible with older releases that
@@ -118,6 +126,11 @@ namespace PKISharp.WACS.Services
                 {
                     var appData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
                     configRoot = Path.Combine(appData, Client.ClientName);
+                }
+                if (!string.IsNullOrEmpty(directoryUrlIdentfier))
+                {
+                    _log.Debug("Setting config directory path:{}", directoryUrlIdentfier);
+                    configRoot = string.Join("_", new string[] { configRoot, directoryUrlIdentfier });
                 }
             }
 
