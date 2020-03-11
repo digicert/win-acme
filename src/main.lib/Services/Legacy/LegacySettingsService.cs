@@ -29,13 +29,14 @@ namespace PKISharp.WACS.Host.Services.Legacy
         public List<string> ClientNames { get; private set; }
         public Uri BaseUri { get; private set; } 
 
-        public Uri DirectoryUri => _settings.DirectoryUri;
+        public Uri DirectoryUri { get; private set; }
 
         public LegacySettingsService(ILogService log, MainArguments main, ISettingsService settings)
         {
             _log = log;
             UI = settings.UI;
             Acme = settings.Acme;
+            DirectoryUri = settings.DirectoryUri;
             ScheduledTask = settings.ScheduledTask;
             Notification = settings.Notification;
             Security = settings.Security;

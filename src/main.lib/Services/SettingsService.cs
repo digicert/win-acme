@@ -157,12 +157,12 @@ namespace PKISharp.WACS.Services
             // This only happens when invalid options are provided 
             if (!string.IsNullOrEmpty(DirectoryUri.ToString()))
             {
-                _log.Debug("Setting config directory path:{}", DirectoryUri.ToString().CleanBaseUri());
-                Client.ConfigurationPath = Path.Combine(configRoot, DirectoryUri.ToString().CleanBaseUri());
+                _log.Debug("Setting config directory path:{}", DirectoryUri.ToString());
+                Client.ConfigurationPath = Path.Combine(configRoot, DirectoryUri.ToString());
             }
             else
             {
-                Client.ConfigurationPath = Path.Combine(configRoot, BaseUri.ToString().CleanBaseUri());
+                Client.ConfigurationPath = Path.Combine(configRoot, BaseUri.ToString());
             }
 
             // Create folder if it doesn't exist yet
@@ -293,9 +293,9 @@ namespace PKISharp.WACS.Services
             /// </summary>
             public int RetryInterval { get; set; } = 2;
 
-            public Uri DefaultDirectoryUri { get; set; }
+            public Uri? DefaultDirectoryUri { get; set; }
 
-            public Uri DefaultDirectoryUriTest { get; set; }
+            public Uri? DefaultDirectoryUriTest { get; set; }
         }
 
         public class ProxySettings
