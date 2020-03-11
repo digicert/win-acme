@@ -25,7 +25,7 @@ namespace PKISharp.WACS.Services
         public ValidationSettings Validation { get; private set; } = new ValidationSettings();
         public StoreSettings Store { get; private set; } = new StoreSettings();
         public string ExePath { get; private set; } = Process.GetCurrentProcess().MainModule.FileName;
-
+        
         public SettingsService(ILogService log, IArgumentsService arguments)
         {
             _log = log;
@@ -105,15 +105,24 @@ namespace PKISharp.WACS.Services
         {
             get
             {
-                if (_arguments.MainArguments == null)
+                Uri? ret;
+                if (!string.IsNullOrEmpty(_arguments.MainArguments.DirectoryUri))
                 {
-                    return Acme.DefaultDirectoryUri;
+                    ret = new Uri(_arguments.MainArguments.DirectoryUri);
                 }
-                return !string.IsNullOrEmpty(_arguments.MainArguments.DirectoryUri) ?
-                    new Uri(_arguments.MainArguments.DirectoryUri) :
-                        _arguments.MainArguments.Test ?
-                            Acme.DefaultDirectoryUriTest :
-                            Acme.DefaultDirectoryUri;
+                else if (_arguments.MainArguments.Test)
+                {
+                    ret = Acme.DefaultDirectoryUriTest;
+                }
+                else
+                {
+                    ret = Acme.DefaultDirectoryUri;
+                }
+                if (ret == null)
+                {
+                    throw new Exception("Unable to determine Directory URL");
+                }
+                return ret;
             }
         }
 

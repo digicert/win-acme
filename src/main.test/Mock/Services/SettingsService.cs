@@ -19,5 +19,7 @@ namespace PKISharp.WACS.UnitTests.Mock.Services
         public SettingsService.StoreSettings Store => new SettingsService.StoreSettings();
         public string ExePath => Process.GetCurrentProcess().MainModule.FileName;
         public SettingsService.ScriptSettings Script => new SettingsService.ScriptSettings();
+
+         public Uri DirectoryUri => new Uri("https://www.win-acme.com/directory");
     }
 }
