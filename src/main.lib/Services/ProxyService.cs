@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Security.Authentication;
+usign System.Environment;
 
 namespace PKISharp.WACS.Services
 {
@@ -22,6 +23,8 @@ namespace PKISharp.WACS.Services
         /// Is the user requesting the system proxy
         /// </summary>
         public bool UseSystemProxy => string.Equals(_settings.Proxy.Url, "[System]", StringComparison.OrdinalIgnoreCase);
+
+        public bool useEnvVariableProxy = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("HTTP_PROXY"));
 
         /// <summary>
         /// Get prepared HttpClient with correct system proxy settings
@@ -58,7 +61,13 @@ namespace PKISharp.WACS.Services
                                 string.IsNullOrEmpty(_settings.Proxy.Url) ? 
                                     new WebProxy() : 
                                     new WebProxy(_settings.Proxy.Url);
-                if (proxy != null)
+                var httpProxy = Environment.GetEnvironmentVariable("HTTP_PROXY");
+                _log.Information("HTTP_PROXY variable is:{httpProxy}",httpProxy);
+                proxy = useEnvVariableProxy ?
+                new WebProxy(httpProxy):string.IsNullOrEmpty(_settings.Proxy.Url) ? 
+                                    new WebProxy() : 
+                                    new WebProxy(_settings.Proxy.Url);
+                if (proxy != null && !useEnvVariableProxy)
                 {
                     var testUrl = new Uri("http://proxy.example.com");
                     var proxyUrl = proxy.GetProxy(testUrl);
