@@ -62,10 +62,31 @@ namespace PKISharp.WACS.Services
                                     new WebProxy(_settings.Proxy.Url);
                 var httpProxy = Environment.GetEnvironmentVariable("HTTP_PROXY");
                 _log.Information("HTTP_PROXY variable is:{httpProxy}",httpProxy);
-                proxy = useEnvVariableProxy ?
-                new WebProxy(httpProxy):string.IsNullOrEmpty(_settings.Proxy.Url) ? 
-                                    new WebProxy() : 
-                                    new WebProxy(_settings.Proxy.Url);
+                if(useEnvVariableProxy){
+                    bool isEnvAuthentication = httpProxy.Contains("@");
+                    proxy = new WebProxy(httpProxy);
+                    if(isEnvAuthentication){
+                        _log.Information("Setting environment authentication parameters");
+                        var protocol = httpProxy.Substring(0,httpProxy.LastIndexOf("//")+2);
+                        var ipAndPort = httpProxy.Substring(httpProxy.LastIndexOf("@")+1,httpProxy.Length-httpProxy.LastIndexOf("@")-1);
+                        var usernamePassword = httpProxy.Substring(httpProxy.LastIndexOf("//")+2,httpProxy.LastIndexOf("@")-httpProxy.LastIndexOf("//")-2);
+                        var username = usernamePassword.Substring(0,usernamePassword.LastIndexOf(":"));
+                        var password = usernamePassword.Substring(usernamePassword.LastIndexOf(":")+1,usernamePassword.Length-usernamePassword.LastIndexOf(":")-1);
+                        httpProxy = String.Format("{0}{1}",protocol,ipAndPort);
+                        _log.Information("Setting proxy {httpProxy}",httpProxy);
+                        proxy.Address = new Uri(httpProxy);
+                        if (!string.IsNullOrWhiteSpace(username)){
+                            proxy.Credentials = new NetworkCredential(username,password);
+                        }                      
+                                            
+                    }
+                    
+                    
+                }else if(string.IsNullOrEmpty(_settings.Proxy.Url) ){
+                    proxy = new WebProxy();
+                }else{
+                    proxy = new WebProxy(_settings.Proxy.Url);
+                }                                    ;
                 if (proxy != null && !useEnvVariableProxy)
                 {
                     var testUrl = new Uri("http://proxy.example.com");
