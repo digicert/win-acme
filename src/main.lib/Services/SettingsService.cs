@@ -166,8 +166,8 @@ namespace PKISharp.WACS.Services
             // This only happens when invalid options are provided 
             if (!string.IsNullOrEmpty(DirectoryUri.ToString()))
             {
-                _log.Debug("Setting config directory path:{}", DirectoryUri.ToString());
-                Client.ConfigurationPath = Path.Combine(configRoot, DirectoryUri.ToString());
+                _log.Debug("Setting config directory path:{}", DirectoryUri.Host.ToString());
+                Client.ConfigurationPath = Path.Combine(configRoot, DirectoryUri.Host.ToString());
             }
             else
             {
