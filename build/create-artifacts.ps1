@@ -39,10 +39,10 @@ function PlatformRelease
 	}
 	$MainZip = "win-acme.v$Version.$PlatformShort.$Postfix.zip"
 	$MainZipPath = "$Out\$MainZip"
-	$MainBin = "$Root\src\main\bin\$ReleaseType\netcoreapp3.0\$Platform"
+	$MainBin = "$Root\src\main\bin\$ReleaseType\netcoreapp3.1\$Platform"
 	if (!(Test-Path $MainBin)) 
 	{
-		$MainBin = "$Root\src\main\bin\Any CPU\$ReleaseType\netcoreapp3.0\$Platform"
+		$MainBin = "$Root\src\main\bin\Any CPU\$ReleaseType\netcoreapp3.1\$Platform"
 	}
 	if (Test-Path $MainBin) 
 	{
@@ -62,10 +62,10 @@ function PluginRelease
 	Remove-Item $Temp\* -recurse
 	$PlugZip = "$Dir.v$Version.zip"
 	$PlugZipPath = "$Out\$PlugZip"
-	$PlugBin = "$Root\src\$Dir\bin\Release\netcoreapp3.0\publish"
+	$PlugBin = "$Root\src\$Dir\bin\Release\netcoreapp3.1\publish"
 	if (!(Test-Path $PlugBin)) 
 	{
-		$PlugBin = "$Root\src\$Dir\bin\Any CPU\Release\netcoreapp3.0\publish"
+		$PlugBin = "$Root\src\$Dir\bin\Any CPU\Release\netcoreapp3.1\publish"
 	}
 	if (Test-Path $PlugBin) 
 	{
@@ -85,6 +85,7 @@ PluginRelease dreamhost plugin.validation.dns.dreamhost @(
 )
 PluginRelease azure plugin.validation.dns.azure @(
 	"Microsoft.Azure.Management.Dns.dll", 
+	"Microsoft.Azure.Services.AppAuthentication.dll",
 	"Microsoft.IdentityModel.Clients.ActiveDirectory.dll",
 	"Microsoft.IdentityModel.Logging.dll",
 	"Microsoft.IdentityModel.Tokens.dll",
@@ -97,6 +98,10 @@ PluginRelease route53 plugin.validation.dns.route53 @(
 	"AWSSDK.Core.dll", 
 	"AWSSDK.Route53.dll",
 	"PKISharp.WACS.Plugins.ValidationPlugins.Route53.dll"
+)
+PluginRelease cloudflare plugin.validation.dns.cloudflare @(
+	"FluentCloudflare.dll", 
+	"PKISharp.WACS.Plugins.ValidationPlugins.Cloudflare.dll"
 )
 
 "Created artifacts:"

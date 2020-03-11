@@ -31,26 +31,42 @@ namespace PKISharp.WACS.Services
             _log = log;
             _arguments = arguments;
 
-            var installDir = new FileInfo(ExePath).DirectoryName;
-            _log.Verbose($"Looking for settings.json in {installDir}");
-            var settings = new FileInfo(Path.Combine(installDir, "settings.json"));
-            var settingsTemplate = new FileInfo(Path.Combine(installDir, "settings_default.json"));
+            var installDir = new FileInfo(ExePath).DirectoryName; 
+            var settingsFileName = "settings.json";
+            var settingsFileTemplateName = "settings_default.json";
+            _log.Verbose($"Looking for {settingsFileName} in {installDir}");
+            var settings = new FileInfo(Path.Combine(installDir, settingsFileName));
+            var settingsTemplate = new FileInfo(Path.Combine(installDir, settingsFileTemplateName));
+            var useFile = settings;
             if (!settings.Exists && settingsTemplate.Exists)
             {
-                _log.Verbose($"Copying settings_default.json to settings.json");
-                settingsTemplate.CopyTo(settings.FullName);
+                _log.Verbose($"Copying {settingsFileTemplateName} to {settingsFileName}");
+                try
+                {
+                    settingsTemplate.CopyTo(settings.FullName);
+                } 
+                catch (Exception)
+                {
+                    _log.Error($"Unable to create {settingsFileName}, falling back to {settingsFileTemplateName}");
+                    useFile = settingsTemplate;
+                }
             }
 
             try
             {
                 new ConfigurationBuilder()
-                    .AddJsonFile(Path.Combine(installDir, "settings.json"), true, true)
+                    .AddJsonFile(useFile.FullName, true, true)
                     .Build()
                     .Bind(this);
             }
             catch (Exception ex)
             {
-                _log.Error(new Exception("Invalid settings.json", ex), "Unable to start program");
+                _log.Error($"Unable to start program using {useFile.Name}");
+                while (ex.InnerException != null)
+                {
+                    _log.Error(ex.InnerException.Message);
+                    ex = ex.InnerException;
+                }
                 return;
             }
 
@@ -64,15 +80,24 @@ namespace PKISharp.WACS.Services
         {
             get
             {
-                if (_arguments.MainArguments == null)
+                Uri? ret;
+                if (!string.IsNullOrEmpty(_arguments.MainArguments.BaseUri))
                 {
-                    return Acme.DefaultBaseUri;
+                    ret = new Uri(_arguments.MainArguments.BaseUri);
                 }
-                return !string.IsNullOrEmpty(_arguments.MainArguments.BaseUri) ? 
-                    new Uri(_arguments.MainArguments.BaseUri) :
-                        _arguments.MainArguments.Test ? 
-                            Acme.DefaultBaseUriTest : 
-                            Acme.DefaultBaseUri;
+                else if (_arguments.MainArguments.Test)
+                {
+                    ret = Acme.DefaultBaseUriTest;
+                }
+                else
+                {
+                    ret = Acme.DefaultBaseUri;
+                }
+                if (ret == null)
+                {
+                    throw new Exception("Unable to determine BaseUri");
+                }
+                return ret;
             }
         }
 
@@ -140,11 +165,8 @@ namespace PKISharp.WACS.Services
                 Client.ConfigurationPath = Path.Combine(configRoot, BaseUri.ToString().CleanBaseUri());
             }
 
-
-
-
             // Create folder if it doesn't exist yet
-            var di = Directory.CreateDirectory(Client.ConfigurationPath);
+            var di = new DirectoryInfo(Client.ConfigurationPath);
             if (!di.Exists)
             {
                 try
@@ -161,13 +183,18 @@ namespace PKISharp.WACS.Services
         }
 
         /// <summary>
-        /// Find and/or created path of the certificate cache
+        /// Find and/or created path for logging
         /// </summary>
         private void CreateLogPath()
         {
             if (string.IsNullOrWhiteSpace(Client.LogPath))
             {
                 Client.LogPath = Path.Combine(Client.ConfigurationPath, "Log");
+            }
+            else
+            {
+                // Create seperate logs for each endpoint
+                Client.LogPath = Path.Combine(Client.LogPath, BaseUri.CleanUri());
             }
             if (!Directory.Exists(Client.LogPath))
             {
@@ -211,8 +238,8 @@ namespace PKISharp.WACS.Services
         public class ClientSettings
         {
             public string ClientName { get; set; } = "win-acme";
-            public string ConfigurationPath { get; set; }
-            public string LogPath { get; set; }
+            public string ConfigurationPath { get; set; } = "";
+            public string? LogPath { get; set; }
         }
 
         public class UiSettings
@@ -220,17 +247,17 @@ namespace PKISharp.WACS.Services
             /// <summary>
             /// The number of hosts to display per page.
             /// </summary>
-            public int PageSize { get; set; }
+            public int PageSize { get; set; } = 50;
             /// <summary>
             /// A string that is used to format the date of the 
             /// pfx file friendly name. Documentation for 
             /// possibilities is available from Microsoft.
             /// </summary>
-            public string DateFormat { get; set; }
+            public string? DateFormat { get; set; }
             /// <summary>
             /// How console tekst should be encoded
             /// </summary>
-            public string TextEncoding { get; set; }
+            public string? TextEncoding { get; set; }
         }
 
         public class AcmeSettings
@@ -239,17 +266,17 @@ namespace PKISharp.WACS.Services
             /// Default ACMEv2 endpoint to use when none 
             /// is specified with the command line.
             /// </summary>
-            public Uri DefaultBaseUri { get; set; }
+            public Uri? DefaultBaseUri { get; set; }
             /// <summary>
             /// Default ACMEv2 endpoint to use when none is specified 
             /// with the command line and the --test switch is
             /// activated.
             /// </summary>
-            public Uri DefaultBaseUriTest { get; set; }
+            public Uri? DefaultBaseUriTest { get; set; }
             /// <summary>
             /// Default ACMEv1 endpoint to import renewal settings from.
             /// </summary>
-            public Uri DefaultBaseUriImport { get; set; }
+            public Uri? DefaultBaseUriImport { get; set; }
             /// <summary>
             /// Use POST-as-GET request mode
             /// </summary>
@@ -280,15 +307,15 @@ namespace PKISharp.WACS.Services
             /// Passing an empty string will bypass the 
             /// system proxy.
             /// </summary>
-            public string Url { get; set; }
+            public string? Url { get; set; }
             /// <summary>
             /// Username used to access the proxy server.
             /// </summary>
-            public string Username { get; set; }
+            public string? Username { get; set; }
             /// <summary>
             /// Password used to access the proxy server.
             /// </summary>
-            public string Password { get; set; }
+            public string? Password { get; set; }
         }
 
         public class CacheSettings
@@ -302,7 +329,7 @@ namespace PKISharp.WACS.Services
             /// [[Central SSL Store|Store-Plugins#centralssl]], this
             /// can not be set to the same path.
             /// </summary>
-            public string Path { get; set; }
+            public string? Path { get; set; }
             /// <summary>
             /// When renewing or re-creating a previously
             /// requested certificate that has the exact 
@@ -362,7 +389,7 @@ namespace PKISharp.WACS.Services
             /// SMTP server to use for sending email notifications. 
             /// Required to receive renewal failure notifications.
             /// </summary>
-            public string SmtpServer { get; set; }
+            public string? SmtpServer { get; set; }
             /// <summary>
             /// SMTP server port number.
             /// </summary>
@@ -371,12 +398,12 @@ namespace PKISharp.WACS.Services
             /// User name for the SMTP server, in case 
             /// of authenticated SMTP.
             /// </summary>
-            public string SmtpUser { get; set; }
+            public string? SmtpUser { get; set; }
             /// <summary>
             /// Password for the SMTP server, in case 
             /// of authenticated SMTP.
             /// </summary>
-            public string SmtpPassword { get; set; }
+            public string? SmtpPassword { get; set; }
             /// <summary>
             /// Change to True to enable SMTPS.
             /// </summary>
@@ -386,19 +413,19 @@ namespace PKISharp.WACS.Services
             /// notification emails. Defaults to the 
             /// ClientName setting when empty.
             /// </summary>
-            public string SenderName { get; set; }
+            public string? SenderName { get; set; }
             /// <summary>
             /// Email address to use as the sender 
             /// of notification emails. Required to 
             /// receive renewal failure notifications.
             /// </summary>
-            public string SenderAddress { get; set; }
+            public string? SenderAddress { get; set; }
             /// <summary>
             /// Email addresses to receive notification emails. 
             /// Required to receive renewal failure 
             /// notifications.
             /// </summary>
-            public List<string> ReceiverAddresses { get; set; }
+            public List<string>? ReceiverAddresses { get; set; }
             /// <summary>
             /// Send an email notification when a certificate 
             /// has been successfully renewed, as opposed to 
@@ -420,7 +447,7 @@ namespace PKISharp.WACS.Services
             /// <summary>
             /// The curve to use for EC certificates.
             /// </summary>
-            public string ECCurve { get; set; }
+            public string? ECCurve { get; set; }
             /// <summary>
             /// If set to True, it will be possible to export 
             /// the generated certificates from the certificate 
@@ -478,7 +505,7 @@ namespace PKISharp.WACS.Services
             /// can lead to prevalidation failures when your Active Directory is 
             /// hosting a private version of the DNS zone for internal use.
             /// </summary>
-            public List<string> DnsServers { get; set; }
+            public List<string>? DnsServers { get; set; }
         }
 
         public class StoreSettings
@@ -488,7 +515,7 @@ namespace PKISharp.WACS.Services
             /// certificates will be installed either in the WebHosting store, 
             /// or if that is not available, the My store (better known as Personal).
             /// </summary>
-            public string DefaultCertificateStore { get; set; }
+            public string? DefaultCertificateStore { get; set; }
             /// <summary>
             /// When using --store centralssl this path is used by default, saving you
             /// the effort from providing it manually. Filling this out makes the 
@@ -497,7 +524,7 @@ namespace PKISharp.WACS.Services
             /// future default value, meaning this is also a good practice for 
             /// maintainability.
             /// </summary>
-            public string DefaultCentralSslStore { get; set; }
+            public string? DefaultCentralSslStore { get; set; }
             /// <summary>
             /// When using --store centralssl this password is used by default for 
             /// the pfx files, saving you the effort from providing it manually. 
@@ -506,7 +533,7 @@ namespace PKISharp.WACS.Services
             /// automatically change to any future default value, meaning this
             /// is also a good practice for maintainability.
             /// </summary>
-            public string DefaultCentralSslPfxPassword { get; set; }
+            public string? DefaultCentralSslPfxPassword { get; set; }
             /// <summary>
             /// When using --store pemfiles this path is used by default, saving 
             /// you the effort from providing it manually. Filling this out makes 
@@ -515,7 +542,7 @@ namespace PKISharp.WACS.Services
             /// future default value, meaning this is also a good practice for 
             /// maintainability.
             /// </summary>
-            public string DefaultPemFilesPath { get; set; }
+            public string? DefaultPemFilesPath { get; set; }
         }
     }
 }

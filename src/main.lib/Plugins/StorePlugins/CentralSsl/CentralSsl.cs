@@ -15,7 +15,7 @@ namespace PKISharp.WACS.Plugins.StorePlugins
     {
         private readonly ILogService _log;
         private readonly string _path;
-        private readonly string _password;
+        private readonly string? _password;
 
         public CentralSsl(ILogService log, ISettingsService settings, CentralSslOptions options)
         {
@@ -25,31 +25,36 @@ namespace PKISharp.WACS.Plugins.StorePlugins
                 options.PfxPassword.Value : 
                 settings.Store.DefaultCentralSslPfxPassword;
 
-            _path = !string.IsNullOrWhiteSpace(options.Path) ? 
+            var path = !string.IsNullOrWhiteSpace(options.Path) ? 
                 options.Path :
                 settings.Store.DefaultCentralSslStore;
 
-            if (_path.ValidPath(log))
+            if (path != null && path.ValidPath(log))
             {
+                _path = path;
                 _log.Debug("Using Centralized SSL path: {_path}", _path);
             }
             else
             {
-                throw new Exception($"Specified CentralSsl path {_path} is not valid.");
+                throw new Exception($"Specified CentralSsl path {path} is not valid.");
             }
         }
+
+        private string PathForIdentifier(string identifier) => Path.Combine(_path, $"{identifier.Replace("*", "_")}.pfx");
 
         public Task Save(CertificateInfo input)
         {
             _log.Information("Copying certificate to the Central SSL store");
-            IEnumerable<string> targets = input.HostNames;
-            foreach (var identifier in targets)
+            foreach (var identifier in input.HostNames)
             {
-                var dest = Path.Combine(_path, $"{identifier.Replace("*", "_")}.pfx");
+                var dest = PathForIdentifier(identifier);
                 _log.Information("Saving certificate to Central SSL location {dest}", dest);
                 try
                 {
-                    File.WriteAllBytes(dest, input.Certificate.Export(X509ContentType.Pfx, _password));
+                    var collection = new X509Certificate2Collection();
+                    collection.Add(input.Certificate);
+                    collection.AddRange(input.Chain.ToArray());
+                    File.WriteAllBytes(dest, collection.Export(X509ContentType.Pfx, _password));
                 }
                 catch (Exception ex)
                 {
@@ -68,9 +73,10 @@ namespace PKISharp.WACS.Plugins.StorePlugins
         public Task Delete(CertificateInfo input)
         {
             _log.Information("Removing certificate from the Central SSL store");
-            var di = new DirectoryInfo(_path);
-            foreach (var fi in di.GetFiles("*.pfx"))
+            foreach (var identifier in input.HostNames)
             {
+                var dest = PathForIdentifier(identifier);
+                var fi = new FileInfo(dest);
                 var cert = LoadCertificate(fi);
                 if (cert != null)
                 {
@@ -79,7 +85,7 @@ namespace PKISharp.WACS.Plugins.StorePlugins
                         fi.Delete();
                     }
                     cert.Dispose();
-                }
+                }               
             }
             return Task.CompletedTask;
         }
@@ -89,9 +95,13 @@ namespace PKISharp.WACS.Plugins.StorePlugins
         /// </summary>
         /// <param name="fi"></param>
         /// <returns></returns>
-        private X509Certificate2 LoadCertificate(FileInfo fi)
+        private X509Certificate2? LoadCertificate(FileInfo fi)
         {
-            X509Certificate2 cert = null;
+            X509Certificate2? cert = null;
+            if (!fi.Exists)
+            {
+                return cert;
+            }
             try
             {
                 cert = new X509Certificate2(fi.FullName, _password);
@@ -110,6 +120,6 @@ namespace PKISharp.WACS.Plugins.StorePlugins
             return cert;
         }
 
-        bool IPlugin.Disabled => false;
+        (bool, string?) IPlugin.Disabled => (false, null);
     }
 }

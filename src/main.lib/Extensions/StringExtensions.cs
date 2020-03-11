@@ -10,9 +10,27 @@ namespace PKISharp.WACS.Extensions
 {
     public static class StringExtensions
     {
-        public static string CleanBaseUri(this string fileName)
+        public static string? CleanUri(this Uri? uri)
         {
-            fileName = fileName.Replace("https://", "").Replace("http://", "");
+            if (uri == null)
+            {
+                return null;
+            }
+            var str = uri.ToString();
+            if (!string.IsNullOrEmpty(uri.UserInfo))
+            {
+                str = str.Replace($"{uri.UserInfo}@", "");
+            }
+            str = str.Replace("https://", "").Replace("http://", "");
+            return str.CleanPath();
+        }
+
+        public static string? CleanPath(this string? fileName)
+        {
+            if (fileName == null)
+            {
+                return null;
+            }
             return Path.GetInvalidFileNameChars().Aggregate(fileName, (current, c) => current.Replace(c.ToString(), string.Empty));
         }
 
@@ -30,7 +48,7 @@ namespace PKISharp.WACS.Extensions
             }
         }
 
-        public static List<string> ParseCsv(this string input)
+        public static List<string>? ParseCsv(this string? input)
         {
             if (string.IsNullOrWhiteSpace(input))
             {
@@ -44,8 +62,13 @@ namespace PKISharp.WACS.Extensions
                 ToList();
         }
 
-        public static bool ValidFile(this string input, ILogService logService)
+        public static bool ValidFile(this string? input, ILogService logService)
         {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                logService.Error("No path specified");
+                return false;
+            }
             try
             {
                 var fi = new FileInfo(Environment.ExpandEnvironmentVariables(input));
@@ -63,7 +86,7 @@ namespace PKISharp.WACS.Extensions
             }
         }
 
-        public static bool ValidPath(this string input, ILogService logService)
+        public static bool ValidPath(this string? input, ILogService logService)
         {
             if (string.IsNullOrWhiteSpace(input))
             {
@@ -85,6 +108,12 @@ namespace PKISharp.WACS.Extensions
                 logService.Error("Unable to parse path {path}", input);
                 return false;
             }
+        }
+
+        public static string PatternToRegex(this string pattern)
+        {
+            var parts = pattern.ParseCsv();
+            return $"^({string.Join('|', parts.Select(x => Regex.Escape(x).Replace(@"\*", ".*").Replace(@"\?", ".")))})$";
         }
     }
 }

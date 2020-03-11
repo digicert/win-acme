@@ -1,7 +1,7 @@
 {
   "Client": {
     "ClientName": "win-acme",
-    "ConfigPath": null,
+    "ConfigurationPath": null,
     "LogPath": null
   },
   "UI": {
@@ -16,8 +16,8 @@
     "DefaultDirectoryUri": "https://acme-v02.api.letsencrypt.org/directory",
     "DefaultDirectoryUriTest": "https://acme-staging-v02.api.letsencrypt.org/directory",
     "PostAsGet": true,
-    "RetryCount": 4,
-    "RetryInterval": 2
+    "RetryCount": 5,
+    "RetryInterval": 5
   },
   "Proxy": {
     "Url": "[System]",

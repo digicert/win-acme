@@ -15,11 +15,12 @@ namespace PKISharp.WACS.Plugins.Base.Factories.Null
     {
         Type IPluginOptionsFactory.InstanceType => typeof(NullInstallation);
         Type IPluginOptionsFactory.OptionsType => typeof(NullInstallationOptions);
-        Task<InstallationPluginOptions> IInstallationPluginOptionsFactory.Aquire(Target target, IInputService inputService, RunLevel runLevel) => Task.FromResult<InstallationPluginOptions>(new NullInstallationOptions());
-        Task<InstallationPluginOptions> IInstallationPluginOptionsFactory.Default(Target target) => Task.FromResult<InstallationPluginOptions>(new NullInstallationOptions());
+        Task<InstallationPluginOptions> Generate() => Task.FromResult<InstallationPluginOptions>(new NullInstallationOptions());
+        Task<InstallationPluginOptions> IInstallationPluginOptionsFactory.Aquire(Target target, IInputService inputService, RunLevel runLevel) => Generate();
+        Task<InstallationPluginOptions> IInstallationPluginOptionsFactory.Default(Target target) => Generate();
         bool IInstallationPluginOptionsFactory.CanInstall(IEnumerable<Type> storeTypes) => true;
         int IPluginOptionsFactory.Order => int.MaxValue;
-        bool IPluginOptionsFactory.Disabled => false;
+        (bool, string?) IPluginOptionsFactory.Disabled => (false, null);
         string IPluginOptionsFactory.Name => new NullInstallationOptions().Name;
         string IPluginOptionsFactory.Description => new NullInstallationOptions().Description;
         bool IPluginOptionsFactory.Match(string name) => string.Equals(name, new NullInstallationOptions().Name, StringComparison.CurrentCultureIgnoreCase);
@@ -29,12 +30,12 @@ namespace PKISharp.WACS.Plugins.Base.Factories.Null
     internal class NullInstallationOptions : InstallationPluginOptions<NullInstallation>
     {
         public override string Name => "None";
-        public override string Description => "Do not run any (extra) installation steps";
+        public override string Description => "No (additional) installation steps";
     }
 
     internal class NullInstallation : IInstallationPlugin
     {
-        bool IPlugin.Disabled => false;
-        Task IInstallationPlugin.Install(IEnumerable<IStorePlugin> stores, CertificateInfo newCertificateInfo, CertificateInfo oldCertificateInfo) => Task.CompletedTask;
+        (bool, string?) IPlugin.Disabled => (false, null);
+        Task IInstallationPlugin.Install(IEnumerable<IStorePlugin> stores, CertificateInfo newCertificateInfo, CertificateInfo? oldCertificateInfo) => Task.CompletedTask;
     }
 }

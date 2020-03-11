@@ -44,7 +44,7 @@ namespace PKISharp.WACS.Services
             }
         }
 
-        public Task<bool> Wait(string message = "Press enter to continue...")
+        public Task<bool> Wait(string message = "Press <Enter> to continue...")
         {
             Validate(message);
             CreateSpace();
@@ -82,7 +82,7 @@ namespace PKISharp.WACS.Services
             return "";
         }
 
-        public void Show(string label, string value, bool newLine = false, int level = 0)
+        public void Show(string? label, string? value, bool newLine = false, int level = 0)
         {
             if (newLine)
             {
@@ -228,7 +228,7 @@ namespace PKISharp.WACS.Services
 
         // Replaces the characters of the typed in password with asterisks
         // More info: http://rajeshbailwal.blogspot.com/2012/03/password-in-c-console-application.html
-        public Task<string> ReadPassword(string what)
+        public async Task<string?> ReadPassword(string what)
         {
             Validate(what);
             CreateSpace();
@@ -278,70 +278,86 @@ namespace PKISharp.WACS.Services
             var ret = password.ToString();
             if (string.IsNullOrEmpty(ret))
             {
-                return Task.FromResult<string>(null);
+                return null;
             }
             else
             {
-                return Task.FromResult(ret);
+                return ret;
             }
+        }
+
+        /// <summary>
+        /// Version of the picker where null may be returned
+        /// </summary>
+        /// <typeparam name="TSource"></typeparam>
+        /// <typeparam name="TResult"></typeparam>
+        /// <param name="what"></param>
+        /// <param name="options"></param>
+        /// <param name="creator"></param>
+        /// <param name="nullLabel"></param>
+        /// <returns></returns>
+        public async Task<TResult?> ChooseOptional<TSource, TResult>(
+            string what, IEnumerable<TSource> options,
+            Func<TSource, Choice<TResult?>> creator,
+            string nullLabel) where TResult : class
+        {
+            var baseChoices = options.Select(creator).ToList();
+            if (!baseChoices.Any(x => !x.Disabled))
+            {
+                _log.Warning("No options available");
+                return default;
+            }
+            var defaults = baseChoices.Where(x => x.Default);
+            var cancel = Choice.Create(default(TResult), nullLabel, _cancelCommand);
+            if (defaults.Count() == 0)
+            {
+                cancel.Command = "<Enter>";
+                cancel.Default = true;
+            }
+            baseChoices.Add(cancel);
+            return await ChooseFromMenu(what, baseChoices);
         }
 
         /// <summary>
         /// Print a (paged) list of targets for the user to choose from
         /// </summary>
         /// <param name="targets"></param>
-        public async Task<T> ChooseFromList<S, T>(string what, IEnumerable<S> options, Func<S, Choice<T>> creator, string nullLabel = null)
+        public async Task<T> ChooseRequired<S, T>(
+            string what, 
+            IEnumerable<S> options, 
+            Func<S, Choice<T>> creator) 
         {
             var baseChoices = options.Select(creator).ToList();
-            var allowNull = !string.IsNullOrEmpty(nullLabel);
             if (!baseChoices.Any(x => !x.Disabled))
             {
-                if (allowNull)
-                {
-                    _log.Warning("No options available");
-                    return default;
-                }
-                else
-                {
-                    throw new Exception("No options available for required choice");
-                }
+                throw new Exception("No options available for required choice");
             }
-            var defaults = baseChoices.Where(x => x.Default);
-            if (defaults.Count() > 1)
-            {
-                throw new Exception("Multiple defaults provided");
-            } 
-            else if (defaults.Count() == 1 && defaults.First().Disabled)
-            {
-                throw new Exception("Default option is disabled");
-            }
-            if (allowNull)
-            {
-                var cancel = Choice.Create(default(T), nullLabel, _cancelCommand);
-                if (defaults.Count() == 0)
-                {
-                    cancel.Command = "<Enter>";
-                    cancel.Default = true;
-                }
-                baseChoices.Add(cancel);
-            }
-            return await ChooseFromList(what, baseChoices);
+            return await ChooseFromMenu(what, baseChoices);
         }
 
         /// <summary>
-        /// Print a (paged) list of targets for the user to choose from
+        /// Print a (paged) list of choices for the user to choose from
         /// </summary>
         /// <param name="choices"></param>
-        public async Task<T> ChooseFromList<T>(string what, List<Choice<T>> choices)
+        public async Task<T> ChooseFromMenu<T>(string what, List<Choice<T>> choices, Func<string, Choice<T>>? unexpected = null)
         {
             if (!choices.Any())
             {
                 throw new Exception("No options available");
             }
+            var defaults = choices.Where(x => x.Default);
+            if (defaults.Count() > 1)
+            {
+                throw new Exception("Multiple defaults provided");
+            }
+            else if (defaults.Count() == 1 && defaults.First().Disabled)
+            {
+                throw new Exception("Default option is disabled");
+            }
 
-            WritePagedList(choices);
+            await WritePagedList(choices);
 
-            Choice<T> selected = null;
+            Choice<T>? selected = null;
             do
             {
                 var choice = await RequestString(what);
@@ -359,8 +375,14 @@ namespace PKISharp.WACS.Services
 
                     if (selected != null && selected.Disabled)
                     {
-                        _log.Warning("The option you have chosen is currently disabled. Run as Administator to enable all features.");
+                        var disabledReason = selected.DisabledReason ?? "Run as Administator to enable all features.";
+                        _log.Warning($"The option you have chosen is currently disabled. {disabledReason}");
                         selected = null;
+                    }
+
+                    if (selected == null && unexpected != null)
+                    {
+                        selected = unexpected(choice);
                     }
                 }
             } while (selected == null);
@@ -371,7 +393,7 @@ namespace PKISharp.WACS.Services
         /// Print a (paged) list of targets for the user to choose from
         /// </summary>
         /// <param name="listItems"></param>
-        public void WritePagedList(IEnumerable<Choice> listItems)
+        public async Task WritePagedList(IEnumerable<Choice> listItems)
         {
             var currentIndex = 0;
             var currentPage = 0;
@@ -388,7 +410,7 @@ namespace PKISharp.WACS.Services
                 // Paging
                 if (currentIndex > 0)
                 {
-                    if (Wait().Result)
+                    if (await Wait())
                     {
                         currentPage += 1;
                     }

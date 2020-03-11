@@ -58,22 +58,19 @@ The `--target` switch, used to select a [target plugin](/win-acme/reference/plug
 triggers the unattended creation of new certificate.
 
 - `--target manual` - selects the [manual plugin](/win-acme/reference/plugins/target/manual).
-- `--target iissite` - selects the [iissite plugin](/win-acme/reference/plugins/target/iissite).
+- `--target iis` - selects the [iis plugin](/win-acme/reference/plugins/target/iis).
 
 Each plugin has their own inputs which it needs to generate the certificate, for example:
 
 ```wacs.exe --target manual --host www.domain.com --webroot C:\sites\wwwroot```
-```wacs.exe --target iissite --siteid 1 --excludebindings exclude.me```
+```wacs.exe --target iis --siteid 1 --excludebindings exclude.me```
 
 There are some other parameters needed for first-time unattended use (e.g. on a clean server) 
-to create the Let's Encrypt registration automatically (```--emailaddress myaddress@example.com --accepttos```).
+to create the Let's Encrypt registration automatically (```--emailaddress myaddress@example.com --accepttos```). 
+So a full command line to create a certificate for IIS site 1 on a clean server (except for 
+the 'exclude.me' binding) would look like this:
 
-One more parameters is needed for a first run to either prevent the creation of a scheduled 
-task (`--notaskscheduler`), or to accept that it will be created under the default `SYSTEM` 
-credential (`--usedefaulttaskuser`). So a full command line to create a certificate for IIS 
-site 1 on a clean server (except for the 'exclude.me' binding) would look like this:
-
-```wacs.exe --target iissite --siteid 1 --excludebindings exclude.me --emailaddress myaddress@example.com --accepttos --usedefaulttaskuser```
+```wacs.exe --target iis --siteid 1 --excludebindings exclude.me --emailaddress myaddress@example.com --accepttos```
 
 #### More examples
 Some application-specific examples are available [here](/win-acme/manual/advanced-use/examples).

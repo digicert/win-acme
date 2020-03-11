@@ -1,6 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PKISharp.WACS.Clients.DNS;
-using PKISharp.WACS.Configuration;
 using PKISharp.WACS.Services;
 using PKISharp.WACS.UnitTests.Mock.Services;
 using System.Linq;
@@ -15,9 +14,10 @@ namespace PKISharp.WACS.UnitTests.Tests.DnsValidationTests
 
         public When_resolving_name_servers()
         {
-            var domainParser = new DomainParseService();
             var log = new LogService(true);
             var settings = new MockSettingsService();
+            var proxy = new ProxyService(log, settings);
+            var domainParser = new DomainParseService(log, proxy, settings);
             _dnsClient = new LookupClientProvider(domainParser, log, settings);
         }
 
@@ -39,5 +39,15 @@ namespace PKISharp.WACS.UnitTests.Tests.DnsValidationTests
         [DataRow("activesync.dynu.net")]
         [DataRow("tweakers.net")]
         public void Should_find_nameserver(string domain) => _ = _dnsClient.GetClients(domain).Result;
+
+
+        [TestMethod]
+        [DataRow("_acme-challenge.acmedns.wouter.tinus.online")]
+        public void Should_Find_Txt(string domain)
+        {
+            var client = _dnsClient.GetClients(domain).Result.First();
+            var tokens = client.GetTextRecordValues(domain, 0).Result;
+            Assert.IsTrue(tokens.Any());
+        }
     }
 }

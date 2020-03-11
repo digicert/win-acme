@@ -1,9 +1,11 @@
-﻿using PKISharp.WACS.Configuration;
+﻿using PKISharp.WACS.Clients.Acme;
+using PKISharp.WACS.Configuration;
 using PKISharp.WACS.DomainObjects;
 using PKISharp.WACS.Extensions;
 using PKISharp.WACS.Plugins.Base.Factories.Null;
 using PKISharp.WACS.Plugins.CsrPlugins;
 using PKISharp.WACS.Services.Serialization;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -21,36 +23,68 @@ namespace PKISharp.WACS.Services.Legacy
         private readonly IRenewalStore _currentRenewal;
         private readonly ILogService _log;
         private readonly ISettingsService _settings;
+        private readonly IInputService _input;
         private readonly TaskSchedulerService _currentTaskScheduler;
         private readonly LegacyTaskSchedulerService _legacyTaskScheduler;
         private readonly PasswordGenerator _passwordGenerator;
+        private readonly AcmeClient _acmeClient;
 
-        public Importer(ILogService log, ILegacyRenewalService legacyRenewal,
+        public Importer(
+            ILogService log, ILegacyRenewalService legacyRenewal,
             ISettingsService settings, IRenewalStore currentRenewal,
+            IInputService input,
             LegacyTaskSchedulerService legacyTaskScheduler,
             TaskSchedulerService currentTaskScheduler,
-            PasswordGenerator passwordGenerator)
+            PasswordGenerator passwordGenerator,
+            AcmeClient acmeClient)
         {
             _legacyRenewal = legacyRenewal;
             _currentRenewal = currentRenewal;
             _log = log;
             _settings = settings;
+            _input = input;
             _currentTaskScheduler = currentTaskScheduler;
             _legacyTaskScheduler = legacyTaskScheduler;
             _passwordGenerator = passwordGenerator;
+            _acmeClient = acmeClient;
         }
 
-        public async Task Import()
+        public async Task Import(RunLevel runLevel)
         {
+
+            if (!_legacyRenewal.Renewals.Any())
+            {
+                _log.Warning("No legacy renewals found");
+            }
             _log.Information("Legacy renewals {x}", _legacyRenewal.Renewals.Count().ToString());
             _log.Information("Current renewals {x}", _currentRenewal.Renewals.Count().ToString());
+            _log.Information("Step {x}/3: convert renewals", 1);
             foreach (var legacyRenewal in _legacyRenewal.Renewals)
             {
                 var converted = Convert(legacyRenewal);
                 _currentRenewal.Import(converted);
             }
-            await _currentTaskScheduler.EnsureTaskScheduler(RunLevel.Import);
+            _log.Information("Step {x}/3: create new scheduled task", 2);
+            await _currentTaskScheduler.EnsureTaskScheduler(runLevel | RunLevel.Import, true);
             _legacyTaskScheduler.StopTaskScheduler();
+
+            _log.Information("Step {x}/3: ensure ACMEv2 account", 3);
+            await _acmeClient.GetAccount();
+            var listCommand = "--list";
+            var renewCommand = "--renew";
+            if (runLevel.HasFlag(RunLevel.Interactive))
+            {
+                listCommand = "Manage renewals";
+                renewCommand = "Run";
+            }
+            _input.Show(null,
+                value: $"The renewals have now been imported into this new version " +
+                "of the program. Nothing else will happen until new scheduled task is " +
+                "first run *or* you trigger them manually. It is highly recommended " +
+                $"to review the imported items with '{listCommand}' and to monitor the " +
+                $"results of the first execution with '{renewCommand}'.",
+                @first: true);
+
         }
 
         public Renewal Convert(LegacyScheduledRenewal legacy)
@@ -65,7 +99,7 @@ namespace PKISharp.WACS.Services.Legacy
             ConvertStore(legacy, ret);
             ConvertInstallation(legacy, ret);
             ret.CsrPluginOptions = new RsaOptions();
-            ret.LastFriendlyName = legacy.Binding.Host;
+            ret.LastFriendlyName = legacy.Binding?.Host;
             ret.History = new List<RenewResult> {
                 new RenewResult("Imported") { }
             };
@@ -74,38 +108,57 @@ namespace PKISharp.WACS.Services.Legacy
 
         public void ConvertTarget(LegacyScheduledRenewal legacy, Renewal ret)
         {
+            if (legacy.Binding == null)
+            {
+                throw new Exception("Cannot convert renewal with empty binding");
+            }
             if (string.IsNullOrEmpty(legacy.Binding.TargetPluginName))
             {
-                switch (legacy.Binding.PluginName)
+                legacy.Binding.TargetPluginName = legacy.Binding.PluginName switch
                 {
-                    case "IIS":
-                        legacy.Binding.TargetPluginName = legacy.Binding.HostIsDns == false ? "IISSite" : "IISBinding";
-                        break;
-                    case "IISSiteServer":
-                        legacy.Binding.TargetPluginName = "IISSites";
-                        break;
-                    case "Manual":
-                        legacy.Binding.TargetPluginName = "Manual";
-                        break;
-                }
+                    "IIS" => legacy.Binding.HostIsDns == false ? "IISSite" : "IISBinding",
+                    "IISSiteServer" => "IISSites",
+                    _ => "Manual",
+                };
             }
             switch (legacy.Binding.TargetPluginName.ToLower())
             {
-                case "iissite":
-                    ret.TargetPluginOptions = new target.IISSiteOptions()
+                case "iisbinding":
+                    var options = new target.IISOptions();
+                    if (!string.IsNullOrEmpty(legacy.Binding.Host))
                     {
-                        CommonName = string.IsNullOrEmpty(legacy.Binding.CommonName) ? null : legacy.Binding.CommonName.ConvertPunycode(),
-                        ExcludeBindings = legacy.Binding.ExcludeBindings.ParseCsv(),
-                        SiteId = legacy.Binding.TargetSiteId ?? legacy.Binding.SiteId ?? 0
-                    };
+                        options.IncludeHosts = new List<string>() { legacy.Binding.Host };
+                    }
+                    var siteId = legacy.Binding.TargetSiteId ?? legacy.Binding.SiteId ?? 0;
+                    if (siteId > 0)
+                    {
+                        options.IncludeSiteIds = new List<long>() { siteId };
+                    }
+                    ret.TargetPluginOptions = options;
+                    break;
+                case "iissite":
+                    options = new target.IISOptions();
+                    if (!string.IsNullOrEmpty(legacy.Binding.CommonName))
+                    {
+                        options.CommonName = legacy.Binding.CommonName.ConvertPunycode();
+                    }
+                    siteId = legacy.Binding.TargetSiteId ?? legacy.Binding.SiteId ?? 0;
+                    if (siteId > 0)
+                    {
+                        options.IncludeSiteIds = new List<long>() { siteId };
+                    }
+                    options.ExcludeHosts = legacy.Binding.ExcludeBindings.ParseCsv();
+                    ret.TargetPluginOptions = options;
                     break;
                 case "iissites":
-                    ret.TargetPluginOptions = new target.IISSitesOptions()
+                    options = new target.IISOptions();
+                    if (!string.IsNullOrEmpty(legacy.Binding.CommonName))
                     {
-                        CommonName = string.IsNullOrEmpty(legacy.Binding.CommonName) ? null : legacy.Binding.CommonName.ConvertPunycode(),
-                        ExcludeBindings = legacy.Binding.ExcludeBindings.ParseCsv(),
-                        SiteIds = legacy.Binding.Host.ParseCsv().Select(x => long.Parse(x)).ToList()
-                    };
+                        options.CommonName = legacy.Binding.CommonName.ConvertPunycode();
+                    }
+                    options.IncludeSiteIds = legacy.Binding.Host.ParseCsv().Select(x => long.Parse(x)).ToList();
+                    options.ExcludeHosts = legacy.Binding.ExcludeBindings.ParseCsv();
+                    ret.TargetPluginOptions = options;
                     break;
                 case "manual":
                     ret.TargetPluginOptions = new target.ManualOptions()
@@ -114,18 +167,15 @@ namespace PKISharp.WACS.Services.Legacy
                         AlternativeNames = legacy.Binding.AlternativeNames.Select(x => x.ConvertPunycode()).ToList()
                     };
                     break;
-                case "iisbinding":
-                    ret.TargetPluginOptions = new target.IISBindingOptions()
-                    {
-                        Host = legacy.Binding.Host,
-                        SiteId = (long)(legacy.Binding.TargetSiteId ?? legacy.Binding.SiteId)
-                    };
-                    break;
             }
         }
 
         public void ConvertValidation(LegacyScheduledRenewal legacy, Renewal ret)
         {
+            if (legacy.Binding == null)
+            {
+                throw new Exception("Cannot convert renewal with empty binding");
+            }
             // Configure validation
             if (legacy.Binding.ValidationPluginName == null)
             {
@@ -137,20 +187,20 @@ namespace PKISharp.WACS.Services.Legacy
                 case "dns-01.dnsscript":
                     ret.ValidationPluginOptions = new dns.ScriptOptions()
                     {
-                        CreateScript = legacy.Binding.DnsScriptOptions.CreateScript,
+                        CreateScript = legacy.Binding.DnsScriptOptions?.CreateScript,
                         CreateScriptArguments = "{Identifier} {RecordName} {Token}",
-                        DeleteScript = legacy.Binding.DnsScriptOptions.DeleteScript,
+                        DeleteScript = legacy.Binding.DnsScriptOptions?.DeleteScript,
                         DeleteScriptArguments = "{Identifier} {RecordName}"
                     };
                     break;
                 case "dns-01.azure":
                     ret.ValidationPluginOptions = new CompatibleAzureOptions()
                     {
-                        ClientId = legacy.Binding.DnsAzureOptions.ClientId,
-                        ResourceGroupName = legacy.Binding.DnsAzureOptions.ResourceGroupName,
-                        Secret = new ProtectedString(legacy.Binding.DnsAzureOptions.Secret),
-                        SubscriptionId = legacy.Binding.DnsAzureOptions.SubscriptionId,
-                        TenantId = legacy.Binding.DnsAzureOptions.TenantId
+                        ClientId = legacy.Binding.DnsAzureOptions?.ClientId,
+                        ResourceGroupName = legacy.Binding.DnsAzureOptions?.ResourceGroupName,
+                        Secret = new ProtectedString(legacy.Binding.DnsAzureOptions?.Secret),
+                        SubscriptionId = legacy.Binding.DnsAzureOptions?.SubscriptionId,
+                        TenantId = legacy.Binding.DnsAzureOptions?.TenantId
                     };
                     break;
                 case "http-01.ftp":
@@ -158,7 +208,7 @@ namespace PKISharp.WACS.Services.Legacy
                     {
                         CopyWebConfig = legacy.Binding.IIS == true,
                         Path = legacy.Binding.WebRootPath,
-                        Credential = new NetworkCredentialOptions(legacy.Binding.HttpFtpOptions.UserName, legacy.Binding.HttpFtpOptions.Password)
+                        Credential = new NetworkCredentialOptions(legacy.Binding.HttpFtpOptions?.UserName, legacy.Binding.HttpFtpOptions?.Password)
                     };
                     break;
                 case "http-01.sftp":
@@ -166,16 +216,22 @@ namespace PKISharp.WACS.Services.Legacy
                     {
                         CopyWebConfig = legacy.Binding.IIS == true,
                         Path = legacy.Binding.WebRootPath,
-                        Credential = new NetworkCredentialOptions(legacy.Binding.HttpFtpOptions.UserName, legacy.Binding.HttpFtpOptions.Password)
+                        Credential = new NetworkCredentialOptions(legacy.Binding.HttpFtpOptions?.UserName, legacy.Binding.HttpFtpOptions?.Password)
                     };
                     break;
                 case "http-01.webdav":
-                    ret.ValidationPluginOptions = new http.WebDavOptions()
+                    var options = new http.WebDavOptions()
                     {
                         CopyWebConfig = legacy.Binding.IIS == true,
-                        Path = legacy.Binding.WebRootPath,
-                        Credential = new NetworkCredentialOptions(legacy.Binding.HttpWebDavOptions.UserName, legacy.Binding.HttpWebDavOptions.Password)
+                        Path = legacy.Binding.WebRootPath
                     };
+                    if (legacy.Binding.HttpWebDavOptions != null)
+                    {
+                        options.Credential = new NetworkCredentialOptions(
+                            legacy.Binding.HttpWebDavOptions.UserName,
+                            legacy.Binding.HttpWebDavOptions.Password);
+                    }
+                    ret.ValidationPluginOptions = options;
                     break;
                 case "tls-sni-01.iis":
                     _log.Warning("TLS-SNI-01 validation was removed from ACMEv2, changing to SelfHosting. Note that this requires port 80 to be public rather than port 443.");
@@ -223,6 +279,10 @@ namespace PKISharp.WACS.Services.Legacy
 
         public void ConvertInstallation(LegacyScheduledRenewal legacy, Renewal ret)
         {
+            if (legacy.Binding == null)
+            {
+                throw new Exception("Cannot convert renewal with empty binding");
+            }
             if (legacy.InstallationPluginNames == null)
             {
                 legacy.InstallationPluginNames = new List<string>();
@@ -261,7 +321,10 @@ namespace PKISharp.WACS.Services.Legacy
                     case "iisftp":
                         ret.InstallationPluginOptions.Add(new install.IISFtpOptions()
                         {
-                            SiteId = legacy.Binding.FtpSiteId.Value
+                            SiteId = legacy.Binding.FtpSiteId ?? 
+                                legacy.Binding.InstallationSiteId ?? 
+                                legacy.Binding.SiteId ?? 
+                                0
                         });
                         break;
                     case "manual":

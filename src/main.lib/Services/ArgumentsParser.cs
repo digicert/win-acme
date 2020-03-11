@@ -11,16 +11,16 @@ namespace PKISharp.WACS.Configuration
         private readonly string[] _args;
         private readonly List<IArgumentsProvider> _providers;
 
-        public T GetArguments<T>() where T : new()
+        public T GetArguments<T>() where T : class, new()
         {
             foreach (var provider in _providers)
             {
-                if (provider is IArgumentsProvider<T>)
+                if (provider is IArgumentsProvider<T> typedProvider)
                 {
-                    return ((IArgumentsProvider<T>)provider).GetResult(_args);
+                    return typedProvider.GetResult(_args);
                 }
             }
-            return default;
+            throw new InvalidOperationException($"Unable to find class that implements IArgumentsProvider<{typeof(T).Name}>");
         }
 
         public ArgumentsParser(ILogService log, IPluginService plugins, string[] args)
@@ -47,6 +47,10 @@ namespace PKISharp.WACS.Configuration
 
             // Run indivual result validations
             var main = GetArguments<MainArguments>();
+            if (main == null)
+            {
+                return false;
+            }
             var mainProvider = _providers.OfType<IArgumentsProvider<MainArguments>>().First();
             if (mainProvider.Validate(_log, main, main))
             {
@@ -91,7 +95,12 @@ namespace PKISharp.WACS.Configuration
         /// <summary>
         /// Show current command line
         /// </summary>
-        internal void ShowCommandLine() => _log.Verbose($"Arguments: {string.Join(" ", _args)}");
+        internal void ShowCommandLine()
+        {
+            var argsFormat = _args.Length == 0 ? "No command line arguments provided" : $"Arguments: {string.Join(" ", _args)}";
+            _log.Verbose(LogType.Screen | LogType.Event, argsFormat);
+            _log.Information(LogType.Disk, argsFormat);
+        }
 
         /// <summary>
         /// Show command line arguments for the help function

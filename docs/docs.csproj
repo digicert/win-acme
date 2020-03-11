@@ -38,6 +38,7 @@
     <None Include="manual\upgrading\to-v1.9.9.md" />
     <None Include="manual\upgrading\to-v2.0.0.md" />
     <None Include="index.md" />
+    <None Include="manual\upgrading\to-v2.0.11.md" />
     <None Include="manual\upgrading\to-v2.1.0.md" />
     <None Include="reference\cli.md" />
     <None Include="reference\plugins\csr\ec.md" />
@@ -54,13 +55,12 @@
     <None Include="reference\plugins\store\pemfiles.md" />
     <None Include="reference\plugins\store\index.md" />
     <None Include="reference\plugins\target\csr.md" />
-    <None Include="reference\plugins\target\iis-binding.md" />
-    <None Include="reference\plugins\target\iis-site.md" />
-    <None Include="reference\plugins\target\iis-sites.md" />
+    <None Include="reference\plugins\target\iis.md" />
     <None Include="reference\plugins\target\manual.md" />
     <None Include="reference\plugins\target\index.md" />
     <None Include="reference\plugins\validation\dns\acme-dns.md" />
     <None Include="reference\plugins\validation\dns\azure.md" />
+    <None Include="reference\plugins\validation\dns\cloudflare.md" />
     <None Include="reference\plugins\validation\dns\dreamhost.md" />
     <None Include="reference\plugins\validation\dns\manual.md" />
     <None Include="reference\plugins\validation\dns\index.md" />
@@ -95,14 +95,6 @@
     <Content Include="_includes\sidebar.html" />
     <Content Include="_includes\sidebarlevel.html" />
     <Content Include="_layouts\default.html" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions">
-      <Version>3.0.0</Version>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json">
-      <Version>3.0.0</Version>
-    </PackageReference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />

@@ -7,7 +7,7 @@ namespace PKISharp.WACS.Plugins.Interfaces
         /// <summary>
         /// Unique identifier
         /// </summary>
-        string Name { get; }
+        string? Name { get; }
 
         /// <summary>
         /// Check if name matches
@@ -19,7 +19,7 @@ namespace PKISharp.WACS.Plugins.Interfaces
         /// <summary>
         /// Human-understandable description
         /// </summary>
-        string Description { get; }
+        string? Description { get; }
 
         /// <summary>
         /// Which type is used as instance
@@ -37,11 +37,10 @@ namespace PKISharp.WACS.Plugins.Interfaces
         int Order { get; }
 
         /// <summary>
-        /// Indicates whether the plugin is currently disabled 
-        /// because of insufficient access rights
+        /// Indicates whether the plugin is currently disabled and why
         /// </summary>
         /// <returns></returns>
-        bool Disabled { get; }
+        (bool, string?) Disabled { get; }
     }
 
     public interface INull { }
@@ -51,11 +50,10 @@ namespace PKISharp.WACS.Plugins.Interfaces
     public interface IPlugin
     {
         /// <summary>
-        /// Indicates whether the plugin is currently disabled 
-        /// because of insufficient access rights
+        /// Indicates whether the plugin is currently disabled and why
         /// </summary>
         /// <returns></returns>
-        bool Disabled { get; }
+        (bool, string?) Disabled { get; }
     }
 
 }

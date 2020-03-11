@@ -31,35 +31,36 @@ namespace PKISharp.WACS.Plugins.ValidationPlugins.Dns
             _dnsClient = dnsClient;
         }
 
-        public override async Task<AcmeOptions> Aquire(Target target, IInputService input, RunLevel runLevel)
+        public override async Task<AcmeOptions?> Aquire(Target target, IInputService input, RunLevel runLevel)
         {
             var ret = new AcmeOptions();
-            Uri baseUri = null;
-            while (baseUri == null)
+            Uri? uri = null;
+            while (ret.BaseUri == null)
             {
                 try
                 {
-                    baseUri = new Uri(await input.RequestString("URL of the acme-dns server"));
+                    var userInput = await input.RequestString("URL of the acme-dns server");
+                    uri = new Uri(userInput);
+                    ret.BaseUri = uri.ToString();
                 }
                 catch { }
             }
-            ret.BaseUri = baseUri.ToString();
-            var acmeDnsClient = new AcmeDnsClient(_dnsClient, _proxy, _log, _settings, input, ret.BaseUri);
+            if (uri == null)
+            {
+                return null;
+            }
+            var acmeDnsClient = new AcmeDnsClient(_dnsClient, _proxy, _log, _settings, input, uri);
             var identifiers = target.Parts.SelectMany(x => x.Identifiers).Distinct();
             foreach (var identifier in identifiers)
             {
-                if (!await acmeDnsClient.EnsureRegistration(identifier.Replace("*.", ""), true))
-                {
-                    // Something failed or was aborted
-                    return null;
-                }
+                await acmeDnsClient.EnsureRegistration(identifier.Replace("*.", ""), true);
             }
             return ret;
         }
 
-        public override async Task<AcmeOptions> Default(Target target)
+        public override async Task<AcmeOptions?> Default(Target target)
         {
-            Uri baseUri = null;
+            Uri? baseUri = null;
             try
             {
                 var baseUriRaw =
@@ -80,20 +81,20 @@ namespace PKISharp.WACS.Plugins.ValidationPlugins.Dns
             {
                 BaseUri = baseUri.ToString()
             };
-            var acmeDnsClient = new AcmeDnsClient(_dnsClient, _proxy, _log, _settings, null, ret.BaseUri);
+            var acmeDnsClient = new AcmeDnsClient(_dnsClient, _proxy, _log, _settings, null, baseUri);
             var identifiers = target.Parts.SelectMany(x => x.Identifiers).Distinct();
             var valid = true;
             foreach (var identifier in identifiers)
             {
                 if (!await acmeDnsClient.EnsureRegistration(identifier.Replace("*.", ""), false))
                 {
+                    _log.Warning("No (valid) acme-dns registration could be found for {identifier}.", identifier);
                     valid = false;
                 }
             }
             if (!valid)
             {
-                _log.Error($"Setting up this certificate is not possible in unattended mode because no (valid) acme-dns registration could be found for one or more of the specified domains.");
-                return null;
+                _log.Warning($"Creating his renewal might fail because the acme-dns configuration for one or more identifiers looks unhealthy.");
             }
             return ret;
         }

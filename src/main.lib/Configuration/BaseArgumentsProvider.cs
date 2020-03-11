@@ -20,24 +20,64 @@ namespace PKISharp.WACS.Configuration
 
         public abstract string Name { get; }
         public abstract string Group { get; }
-        public abstract string Condition { get; }
+        public virtual string? Condition { get; }
         public virtual bool Default => false;
         public abstract void Configure(FluentCommandLineParser<T> parser);
-        public abstract bool Active(T current);
-        bool IArgumentsProvider.Active(object current) => Active((T)current);
-
-        public virtual bool Validate(ILogService log, T current, MainArguments main)
+        bool IArgumentsProvider.Active(object current)
         {
-            var active = Active(current);
-            if (main.Renew && active)
+            if (current is T typed)
             {
-                log.Error($"{Group} parameters cannot be changed during a renewal. Recreate/overwrite the renewal or edit the .json file if you want to make changes.");
-                return false;
+                return IsActive(typed);
             }
             else
             {
-                return true;
+                return false;
             }
+        }
+
+        protected virtual bool IsActive(T current)
+        {
+            foreach (var prop in current.GetType().GetProperties())
+            {
+                if (prop.PropertyType == typeof(bool) && (bool)prop.GetValue(current) == true)
+                {
+                    return true;
+                }
+                if (prop.PropertyType == typeof(string) && !string.IsNullOrEmpty((string)prop.GetValue(current)))
+                {
+                    return true;
+                }
+                if (prop.PropertyType == typeof(int) && (int)prop.GetValue(current) > 0)
+                {
+                    return true;
+                }
+                if (prop.PropertyType == typeof(int?) && (int?)prop.GetValue(current) != null)
+                {
+                    return true;
+                }
+                if (prop.PropertyType == typeof(long) && (long)prop.GetValue(current) > 0)
+                {
+                    return true;
+                }
+                if (prop.PropertyType == typeof(long?) && (long?)prop.GetValue(current) != null)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public virtual bool Validate(ILogService log, T current, MainArguments main)
+        {
+            if (main.Renew)
+            {
+                if (IsActive(current))
+                {
+                    log.Error($"Renewal {(string.IsNullOrEmpty(Group)?"":$"{Group} ")}parameters cannot be changed during a renewal. Recreate/overwrite the renewal or edit the .json file if you want to make changes.");
+                    return false;
+                }
+            }
+            return true;
         }
 
         bool IArgumentsProvider.Validate(ILogService log, object current, MainArguments main) => Validate(log, (T)current, main);

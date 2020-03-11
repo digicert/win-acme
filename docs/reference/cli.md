@@ -54,23 +54,33 @@ applicable when `--bar` is set to `baz` or `qux`.
      certificate cache on new certificate requests.
 
    --cancel
-     Cancel scheduled renewal specified by the friendlyname
-     argument.
+     Cancel renewal specified by the --friendlyname or --id 
+     arguments.
+
+   --revoke
+     Revoke the most recently issued certificate for the renewal 
+     specified by the --friendlyname or --id arguments.
 
    --list
      List all created renewals in unattended mode.
 
    --id
-     [--target|--cancel|--renew] Id of a new or existing 
-	 renewal, can be used to override the default when 
-	 creating a new renewal or to specify a specific 
-	 renewal for other commands.
+     [--target|--cancel|--renew|--revoke] Id of a new or existing
+     renewal, can be used to override the default when creating
+     a new renewal or to specify a specific renewal for other
+     commands.
 
    --friendlyname
-     [--target|--cancel|--renew] Friendly name of a new 
-	 or existing renewal, can be used to override the 
-	 default when creating a new renewal or to specify 
-	 a specific renewal for other commands.
+     [--target|--cancel|--renew|--revoke] Friendly name of a new or
+     existing renewal, can be used to override the default when
+     creating a new renewal or to specify a specific renewal
+     for other commands. In the latter case a pattern might be used. 
+     You may use a `*` for a range of any characters and a `?` 
+     for any single character. For example: the pattern `example.*` 
+     will match `example.net` and `example.com` (but not `my.example.com`) 
+     and the pattern `?.example.com` will match `a.example.com` and 
+     `b.example.com` (but not `www.example.com`). Note that multiple patterns 
+     can be combined by comma seperating them.
 
    --target
      Specify which target plugin to run, bypassing the main
@@ -109,8 +119,8 @@ applicable when `--bar` is set to `baz` or `qux`.
      Do not create (or offer to update) the scheduled task.
 
    --usedefaulttaskuser
-     Avoid the question about specifying the task scheduler
-     user, as such defaulting to the SYSTEM account.
+     (Obsolete) Avoid the question about specifying the task
+     scheduler user, as such defaulting to the SYSTEM account.
 
    --accepttos
      Accept the ACME terms of service.
@@ -174,13 +184,6 @@ applicable when `--bar` is set to `baz` or `qux`.
 ```
 # Store
 
-## PEM files plugin
-``` [--store pemfiles] ```
-```
-   --pemfilespath
-     .pem files are exported to this folder
-
-```
 ## Central Certificate Store plugin
 ``` [--store centralssl] ```
 ```
@@ -203,6 +206,18 @@ applicable when `--bar` is set to `baz` or `qux`.
    --keepexisting
      While renewing, do not remove the previous certificate.
 
+   --acl-fullcontrol
+     List of additional principals (besides the owners of the
+     store) that should get full control permissions on the
+     private key of the certificate.
+
+```
+## PEM files plugin
+``` [--store pemfiles] ```
+```
+   --pemfilespath
+     .pem files are exported to this folder
+
 ```
 # Target
 
@@ -218,24 +233,32 @@ applicable when `--bar` is set to `baz` or `qux`.
      the CSR
 
 ```
-## IIS Binding plugin
-``` [--target iisbinding] ```
+## IIS plugin
+``` [--target iis] ```
 ```
    --siteid
-     Id of the site where the binding should be found
-     (optional).
+     Identifiers of one or more sites to include. This may be a
+     comma seperated list.
 
    --host
-     Host of the binding to get a certificate for.
+     Host name to filter. This parameter may be used to target
+     specific bindings. This may be a comma seperated list.
 
-```
-## IIS Site(s) plugin
-``` [--target iissite|iissites] ```
-```
-   --siteid
-     Identifier of the site that the plugin should create the
-     target from. For iissites this may be a comma separated
-     list.
+   --host-pattern
+     Pattern filter for host names. Can be used to dynamically
+     include bindings based on their match with the pattern.
+     You may use a `*` for a range of any characters and a `?`
+     for any single character. For example: the pattern
+     `example.*` will match `example.net` and `example.com`
+     (but not `my.example.com`) and the pattern `?.example.com`
+     will match `a.example.com` and `b.example.com` (but not
+     `www.example.com`). Note that multiple patterns can be
+     combined by comma seperating them.
+
+   --host-regex
+     Regex pattern filter for host names. Some people, when
+     confronted with a problem, think "I know, I'll use regular
+     expressions." Now they have two problems.
 
    --commonname
      Specify the common name of the certificate that should be
@@ -261,6 +284,16 @@ applicable when `--bar` is set to `baz` or `qux`.
 ```
 # Validation
 
+## SelfHosting plugin
+``` [--validationmode tls-alpn-01 --validation selfhosting] ``` (default)
+```
+   --validationport
+     Port to use for listening to validation requests. Note
+     that the ACME server will always send requests to port
+     443. This option is only useful in combination with a port
+     forwarding.
+
+```
 ## FileSystem plugin
 ``` [--validation filesystem] ```
 ```
@@ -277,7 +310,7 @@ applicable when `--bar` is set to `baz` or `qux`.
      requests.
 
    --warmup
-     Warm up website(s) before attempting HTTP validation.
+     Not used (warmup is the new default).
 
    --manualtargetisiis
      Copy default web.config to the .well-known directory.
@@ -301,7 +334,7 @@ applicable when `--bar` is set to `baz` or `qux`.
 
 ```
 ## Script
-``` [--validationmode dns-01 --validation dnsscript] ```
+``` [--validationmode dns-01 --validation script] ```
 ```
    --dnsscript
      Path to script that creates and deletes validation
@@ -334,5 +367,55 @@ applicable when `--bar` is set to `baz` or `qux`.
 
    --password
      Password for WebDav/(s)ftp server
+
+```
+## Azure
+``` [--validationmode dns-01 --validation azure] ```
+```
+   --azureusemsi
+     Use Managed Service Identity for authentication.
+
+   --azuretenantid
+     Tenant ID to login into Microsoft Azure.
+
+   --azureclientid
+     Client ID to login into Microsoft Azure.
+
+   --azuresecret
+     Secret to login into Microsoft Azure.
+
+   --azuresubscriptionid
+     Subscription ID to login into Microsoft Azure DNS.
+
+   --azureresourcegroupname
+     The name of the resource group within Microsoft Azure DNS.
+
+```
+## Cloudflare
+``` [--validationmode dns-01 --validation cloudflare] ```
+```
+   --cloudflareapitoken
+     API Token for Cloudflare.
+
+```
+## Dreamhost
+``` [--validationmode dns-01 --validation dreamhost] ```
+```
+   --apiKey
+     Dreamhost API key.
+
+```
+## Route53
+``` [--validationmode dns-01 --validation route53] ```
+```
+   --route53IAMRole
+     AWS IAM role for the current EC2 instance to login into
+     Amazon Route 53.
+
+   --route53AccessKeyId
+     Access key ID to login into Amazon Route 53.
+
+   --route53SecretAccessKey
+     Secret access key to login into Amazon Route 53.
 
 ```

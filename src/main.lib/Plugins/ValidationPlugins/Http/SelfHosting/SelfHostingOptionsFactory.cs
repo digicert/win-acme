@@ -16,17 +16,17 @@ namespace PKISharp.WACS.Plugins.ValidationPlugins.Http
             _userRoleService = userRoleService;
         }
 
-        public override bool Disabled => SelfHosting.IsDisabled(_userRoleService);
+        public override (bool, string?) Disabled => SelfHosting.IsDisabled(_userRoleService);
 
-        public override Task<SelfHostingOptions> Aquire(Target target, IInputService inputService, RunLevel runLevel) => Default(target);
+        public override Task<SelfHostingOptions?> Aquire(Target target, IInputService inputService, RunLevel runLevel) => Default(target);
 
-        public override Task<SelfHostingOptions> Default(Target target)
+        public override async Task<SelfHostingOptions?> Default(Target target)
         {
             var args = _arguments.GetArguments<SelfHostingArguments>();
-            return Task.FromResult(new SelfHostingOptions()
+            return new SelfHostingOptions()
             {
                 Port = args.ValidationPort
-            });
+            };
         }
     }
 }

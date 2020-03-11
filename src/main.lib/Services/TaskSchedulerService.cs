@@ -17,20 +17,20 @@ namespace PKISharp.WACS.Services
 
         public TaskSchedulerService(
             ISettingsService settings,
-            IArgumentsService options,
+            IArgumentsService arguments,
             IInputService input,
             ILogService log)
         {
-            _arguments = options.MainArguments;
+            _arguments = arguments.MainArguments;
             _settings = settings;
             _input = input;
             _log = log;
         }
-        private string TaskName(string clientName) => $"{clientName} renew ({_settings.BaseUri.ToString().CleanBaseUri()})";
+        private string TaskName(string clientName) => $"{clientName} renew ({_settings.BaseUri.CleanUri()})";
         private string WorkingDirectory => Path.GetDirectoryName(_settings.ExePath);
         private string ExecutingFile => Path.GetFileName(_settings.ExePath);
 
-        private Task ExistingTask
+        private Task? ExistingTask
         {
             get
             {
@@ -88,7 +88,7 @@ namespace PKISharp.WACS.Services
             }
         }
 
-        public async System.Threading.Tasks.Task EnsureTaskScheduler(RunLevel runLevel)
+        public async System.Threading.Tasks.Task EnsureTaskScheduler(RunLevel runLevel, bool offerRecreate)
         {
             string taskName;
             var existingTask = ExistingTask;
@@ -101,16 +101,24 @@ namespace PKISharp.WACS.Services
             if (existingTask != null)
             {
                 var healthy = IsHealthy(existingTask);
-                if (healthy && !runLevel.HasFlag(RunLevel.Advanced))
+                var recreate = false;
+                if (runLevel.HasFlag(RunLevel.Interactive))
                 {
-                    return;
+                    if (offerRecreate || !healthy)
+                    {
+                        recreate = await _input.PromptYesNo($"Do you want to replace the existing task?", false);
+                    } 
                 }
 
-                if (!await _input.PromptYesNo($"Do you want to replace the existing task?", false))
+                if (!recreate)
                 {
+                    if (!healthy)
+                    {
+                        _log.Error("Proceeding with unhealthy scheduled task, automatic renewals may not work until this is addressed");
+                    }
                     return;
                 }
-
+         
                 _log.Information("Deleting existing task {taskName} from Windows Task Scheduler.", taskName);
                 taskService.RootFolder.DeleteTask(taskName, false);
             }
@@ -160,7 +168,7 @@ namespace PKISharp.WACS.Services
                 try
                 {
                     if (!_arguments.UseDefaultTaskUser &&
-                        runLevel.HasFlag(RunLevel.Advanced) &&
+                        runLevel.HasFlag(RunLevel.Interactive | RunLevel.Advanced) &&
                         await _input.PromptYesNo($"Do you want to specify the user the task will run as?", false))
                     {
                         // Ask for the login and password to allow the task to run 
@@ -185,8 +193,8 @@ namespace PKISharp.WACS.Services
                     else if (existingTask != null)
                     {
                         _log.Debug("Creating task to run with previously chosen credentials");
-                        string password = null;
-                        string username = null;
+                        string? password = null;
+                        string? username = null;
                         if (existingTask.Definition.Principal.LogonType == TaskLogonType.Password)
                         {
                             username = existingTask.Definition.Principal.UserId;

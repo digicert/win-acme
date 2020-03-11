@@ -40,28 +40,34 @@ namespace PKISharp.WACS.Plugins.Resolvers
         /// Allow user to choose a TargetPlugin
         /// </summary>
         /// <returns></returns>
-        public override async Task<ITargetPluginOptionsFactory> GetTargetPlugin(ILifetimeScope scope)
+        public override async Task<ITargetPluginOptionsFactory?> GetTargetPlugin(ILifetimeScope scope)
         {
-            // List options for generating new certificates
-            _input.Show(null, "Please specify how the list of domain names that will be included in the certificate " +
-                "should be determined. If you choose for one of the \"all bindings\" options, the list will automatically be " +
-                "updated for future renewals to reflect the bindings at that time.",
-                true);
-
             var options = _plugins.TargetPluginFactories(scope).
                 Where(x => !x.Hidden).
                 OrderBy(x => x.Order).
                 ThenBy(x => x.Description);
 
-            var defaultType = typeof(IISSiteOptionsFactory);
-            if (!options.OfType<IISSiteOptionsFactory>().Any(x => !x.Disabled))
+            var defaultType = typeof(IISOptionsFactory);
+            if (!options.OfType<IISOptionsFactory>().Any(x => !x.Disabled.Item1))
             {
                 defaultType = typeof(ManualOptionsFactory);
             }
 
-            var ret = await _input.ChooseFromList("How shall we determine the domain(s) to include in the certificate?",
+            if (!_runLevel.HasFlag(RunLevel.Advanced))
+            {
+                return (ITargetPluginOptionsFactory)scope.Resolve(defaultType);
+            }
+
+            // List options for generating new certificates
+            _input.Show(null, "Please specify how the list of domain names that will be included in the certificate " +
+            "should be determined. If you choose for one of the \"all bindings\" options, the list will automatically be " +
+            "updated for future renewals to reflect the bindings at that time.",
+            true);
+
+            var ret = await _input.ChooseOptional(
+                "How shall we determine the domain(s) to include in the certificate?",
                 options,
-                x => Choice.Create(
+                x => Choice.Create<ITargetPluginOptionsFactory?>(
                     x,
                     description: x.Description,
                     @default: x.GetType() == defaultType,
@@ -75,7 +81,7 @@ namespace PKISharp.WACS.Plugins.Resolvers
         /// Allow user to choose a ValidationPlugin
         /// </summary>
         /// <returns></returns>
-        public override async Task<IValidationPluginOptionsFactory> GetValidationPlugin(ILifetimeScope scope, Target target)
+        public override async Task<IValidationPluginOptionsFactory?> GetValidationPlugin(ILifetimeScope scope, Target target)
         {
             if (_runLevel.HasFlag(RunLevel.Advanced))
             {
@@ -83,7 +89,7 @@ namespace PKISharp.WACS.Plugins.Resolvers
                 _input.Show(null, "The ACME server will need to verify that you are the owner of the domain names that you are requesting" +
                     " the certificate for. This happens both during initial setup *and* for every future renewal. There are two main methods of doing so: " +
                     "answering specific http requests (http-01) or create specific dns records (dns-01). For wildcard domains the latter is the only option. " +
-                    "Various additional plugins are available from https://github.com/PKISharp/win-acme/.",
+                    "Various additional plugins are available from https://github.com/win-acme/win-acme/.",
                     true);
 
                 var options = _plugins.ValidationPluginFactories(scope).
@@ -102,14 +108,14 @@ namespace PKISharp.WACS.Plugins.Resolvers
                         ThenBy(x => x.Description);
 
                 var defaultType = typeof(SelfHostingOptionsFactory);
-                if (!options.OfType<SelfHostingOptionsFactory>().Any(x => !x.Disabled))
+                if (!options.OfType<SelfHostingOptionsFactory>().Any(x => !x.Disabled.Item1))
                 {
                     defaultType = typeof(FileSystemOptionsFactory);
                 }
-                var ret = await _input.ChooseFromList(
+                var ret = await _input.ChooseOptional(
                     "How would you like prove ownership for the domain(s) in the certificate?",
                     options,
-                    x => Choice.Create(
+                    x => Choice.Create<IValidationPluginOptionsFactory?>(
                         x, 
                         description: $"[{x.ChallengeType}] {x.Description}", 
                         @default: x.GetType() == defaultType,
@@ -136,7 +142,7 @@ namespace PKISharp.WACS.Plugins.Resolvers
             }
         }
 
-        public override async Task<ICsrPluginOptionsFactory> GetCsrPlugin(ILifetimeScope scope)
+        public override async Task<ICsrPluginOptionsFactory?> GetCsrPlugin(ILifetimeScope scope)
         {
             if (string.IsNullOrEmpty(_options.MainArguments.Csr) &&
                 _runLevel.HasFlag(RunLevel.Advanced))
@@ -147,7 +153,7 @@ namespace PKISharp.WACS.Plugins.Resolvers
                     "(type of) key to use. If you are not sure what to pick here, RSA is the safe default.",
                     true);
 
-                var ret = await _input.ChooseFromList(
+                var ret = await _input.ChooseRequired(
                     "What kind of private key should be used for the certificate?",
                     _plugins.CsrPluginOptionsFactories(scope).
                         Where(x => !(x is INull)).
@@ -166,7 +172,7 @@ namespace PKISharp.WACS.Plugins.Resolvers
             }
         }
 
-        public override async Task<IStorePluginOptionsFactory> GetStorePlugin(ILifetimeScope scope, IEnumerable<IStorePluginOptionsFactory> chosen)
+        public override async Task<IStorePluginOptionsFactory?> GetStorePlugin(ILifetimeScope scope, IEnumerable<IStorePluginOptionsFactory> chosen)
         {
             if (string.IsNullOrEmpty(_options.MainArguments.Store) && _runLevel.HasFlag(RunLevel.Advanced))
             {
@@ -177,7 +183,7 @@ namespace PKISharp.WACS.Plugins.Resolvers
                     ThenBy(x => x.Description).
                     ToList();
 
-                if (filtered.Where(x => !x.Disabled).Count() == 0)
+                if (filtered.Where(x => !x.Disabled.Item1).Count() == 0)
                 {
                     return new NullStoreOptionsFactory();
                 }
@@ -190,26 +196,25 @@ namespace PKISharp.WACS.Plugins.Resolvers
                         true);
                 }
                 var question = "How would you like to store the certificate?";
-                var @default = typeof(CertificateStoreOptionsFactory);
-                if (!filtered.OfType<CertificateStoreOptionsFactory>().Any(x => !x.Disabled))
+                var defaultType = typeof(CertificateStoreOptionsFactory);
+                if (!filtered.OfType<CertificateStoreOptionsFactory>().Any(x => !x.Disabled.Item1))
                 {
-                    @default = typeof(PemFilesOptionsFactory);
+                    defaultType = typeof(PemFilesOptionsFactory);
                 }
 
                 if (chosen.Count() != 0)
                 {
                     question = "Would you like to store it in another way too?";
-                    @default = typeof(NullStoreOptionsFactory);
-                    filtered.Add(new NullStoreOptionsFactory());
+                    defaultType = typeof(NullStoreOptionsFactory);
                 }
 
-                var store = await _input.ChooseFromList(
+                var store = await _input.ChooseOptional(
                     question,
                     filtered,
-                    x => Choice.Create(
+                    x => Choice.Create<IStorePluginOptionsFactory?>(
                         x, 
                         description: x.Description,
-                        @default: x.GetType() == @default,
+                        @default: x.GetType() == defaultType,
                         disabled: x.Disabled),
                     "Abort");
 
@@ -228,7 +233,7 @@ namespace PKISharp.WACS.Plugins.Resolvers
         /// <summary>
         /// </summary>
         /// <returns></returns>
-        public override async Task<IInstallationPluginOptionsFactory> GetInstallationPlugin(ILifetimeScope scope, IEnumerable<Type> storeTypes, IEnumerable<IInstallationPluginOptionsFactory> chosen)
+        public override async Task<IInstallationPluginOptionsFactory?> GetInstallationPlugin(ILifetimeScope scope, IEnumerable<Type> storeTypes, IEnumerable<IInstallationPluginOptionsFactory> chosen)
         {
             if (_runLevel.HasFlag(RunLevel.Advanced))
             {
@@ -239,7 +244,7 @@ namespace PKISharp.WACS.Plugins.Resolvers
                     ThenBy(x => x.Description).
                     Select(x => new {
                         plugin = x, 
-                        usable = !x.Disabled && x.CanInstall(storeTypes) 
+                        usable = !x.Disabled.Item1 && x.CanInstall(storeTypes) 
                     }).
                     ToList();
 
@@ -270,14 +275,15 @@ namespace PKISharp.WACS.Plugins.Resolvers
                     @default = typeof(NullInstallationOptionsFactory);
                 }
 
-                var install = await _input.ChooseFromList(
+                var install = await _input.ChooseRequired(
                     question,
                     filtered,
                     x => Choice.Create(
-                        x, 
+                        x,
                         description: x.plugin.Description,
-                        disabled: !x.usable,
-                        @default: x.plugin.GetType() == @default));
+                        disabled: (!x.usable, x.plugin.Disabled.Item1 ? 
+                        x.plugin.Disabled.Item2 : "Incompatible with selected store."),
+                        @default: x.plugin.GetType() == @default)) ;
 
                 return install.plugin;
             }

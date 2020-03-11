@@ -8,7 +8,7 @@ namespace PKISharp.WACS.Plugins.InstallationPlugins
     internal class IISWebOptions : InstallationPluginOptions<IISWeb>
     {
         public long? SiteId { get; set; }
-        public string NewBindingIp { get; set; }
+        public string? NewBindingIp { get; set; }
         public int? NewBindingPort { get; set; }
 
         public override string Name => "IIS";
@@ -22,10 +22,15 @@ namespace PKISharp.WACS.Plugins.InstallationPlugins
             {
                 NewBindingIp = sslIp;
             }
-            var sslPort = args.SSLPort;
-            if (sslPort != IISClient.DefaultBindingPort)
+            var sslPortRaw = args.SSLPort;
+            if (!string.IsNullOrEmpty(sslPortRaw))
             {
-                NewBindingPort = sslPort;
+                // Already validated by the ArgumentsProvider
+                var sslPort = int.Parse(sslPortRaw);
+                if (sslPort != IISClient.DefaultBindingPort)
+                {
+                    NewBindingPort = sslPort;
+                }
             }
         }
     }

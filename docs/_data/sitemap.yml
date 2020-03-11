@@ -51,7 +51,10 @@ manual:
       url: /win-acme/manual/upgrading/to-v1.9.9
     - title: to v2.0.0
       url: /win-acme/manual/upgrading/to-v2.0.0
-
+    - title: to v2.0.11
+      url: /win-acme/manual/upgrading/to-v2.0.11
+    - title: to v2.1.0
+      url: /win-acme/manual/upgrading/to-v2.1.0
 reference:
 - title: Command line arguments
   url: /win-acme/reference/cli
@@ -65,12 +68,8 @@ reference:
     - title: Target
       url: /win-acme/reference/plugins/target/
       subs:
-        - title: IIS binding
-          url: /win-acme/reference/plugins/target/iis-binding
-        - title: IIS site
-          url: /win-acme/reference/plugins/target/iis-site
-        - title: IIS sites
-          url: /win-acme/reference/plugins/target/iis-sites
+        - title: IIS
+          url: /win-acme/reference/plugins/target/iis
         - title: Manual
           url: /win-acme/reference/plugins/target/manual
         - title: CSR
@@ -106,6 +105,8 @@ reference:
               url: /win-acme/reference/plugins/validation/dns/azure
             - title: Amazon AWS Route53
               url: /win-acme/reference/plugins/validation/dns/route53
+            - title: Cloudflare
+              url: /win-acme/reference/plugins/validation/dns/cloudflare
             - title: Dreamhost
               url: /win-acme/reference/plugins/validation/dns/dreamhost
 

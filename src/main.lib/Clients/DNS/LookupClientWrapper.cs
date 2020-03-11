@@ -2,6 +2,7 @@
 using DnsClient.Protocol;
 using PKISharp.WACS.Services;
 using Serilog.Context;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -12,30 +13,29 @@ namespace PKISharp.WACS.Clients.DNS
     public class LookupClientWrapper
     {
         private readonly ILogService _log;
-        private readonly DomainParseService _domainParser;
         private readonly LookupClientProvider _provider;
-        public ILookupClient LookupClient { get; private set; }
-        public IPAddress IpAddress { get; private set; }
+        private readonly IPAddress? _ipAddress;
 
-        public LookupClientWrapper(DomainParseService domainParser, ILogService logService, IPAddress ipAddress, LookupClientProvider provider)
+        public ILookupClient LookupClient { get; private set; }
+        public string IpAddress => _ipAddress?.ToString() ?? "[System]";
+
+        public LookupClientWrapper(ILogService logService, IPAddress? ipAddress, LookupClientProvider provider)
         {
-            IpAddress = ipAddress;
+            _ipAddress = ipAddress;
             LookupClient = ipAddress == null ? new LookupClient() : new LookupClient(ipAddress);
             LookupClient.UseCache = false;
             _log = logService;
-            _domainParser = domainParser;
             _provider = provider;
         }
 
-        public string GetRootDomain(string domainName) => _domainParser.GetTLD(domainName.TrimEnd('.'));
-
-        public async Task<IEnumerable<IPAddress>> GetAuthoritativeNameServers(string domainName, int round)
+        public async Task<IEnumerable<IPAddress>?> GetAuthoritativeNameServers(string domainName, int round)
         {
             domainName = domainName.TrimEnd('.');
             _log.Debug("Querying name servers for {part}", domainName);
             var nsResponse = await LookupClient.QueryAsync(domainName, QueryType.NS);
             var nsRecords = nsResponse.Answers.NsRecords();
-            if (!nsRecords.Any())
+            var cnameRecords = nsResponse.Answers.CnameRecords();
+            if (!nsRecords.Any() && !cnameRecords.Any())
             {
                 nsRecords = nsResponse.Authorities.OfType<NsRecord>();
             }
@@ -55,8 +55,11 @@ namespace PKISharp.WACS.Clients.DNS
                     _log.Verbose("Querying IP for name server");
                     var aResponse = _provider.GetDefaultClient(round).LookupClient.Query(nsRecord, QueryType.A);
                     var nameServerIp = aResponse.Answers.ARecords().FirstOrDefault()?.Address;
-                    _log.Verbose("Name server IP {NameServerIpAddress} identified", nameServerIp);
-                    yield return nameServerIp;
+                    if (nameServerIp != null)
+                    {
+                        _log.Verbose("Name server IP {NameServerIpAddress} identified", nameServerIp);
+                        yield return nameServerIp;
+                    }
                 }
             }
         }
@@ -69,6 +72,7 @@ namespace PKISharp.WACS.Clients.DNS
             return result.Answers.TxtRecords().
                 Select(txtRecord => txtRecord?.EscapedText?.FirstOrDefault()).
                 Where(txtRecord => txtRecord != null).
+                OfType<string>().
                 ToList();
         }
 
