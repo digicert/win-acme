@@ -84,7 +84,11 @@ namespace PKISharp.WACS.Services
                         _log.Warning("Proxying via {proxy}:{port}", proxyUrl.Host, proxyUrl.Port);
                     }
                 }
+                if(proxy !=null){
+                    _log.Information("Proxy set to:{httpProxy}",proxy.Address.ToString());
+                }
                 _proxy = proxy;
+                                
             }
             return _proxy;
         }
