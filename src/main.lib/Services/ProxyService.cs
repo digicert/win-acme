@@ -23,7 +23,7 @@ namespace PKISharp.WACS.Services
         /// </summary>
         public bool UseSystemProxy => string.Equals(_settings.Proxy.Url, "[System]", StringComparison.OrdinalIgnoreCase);
 
-        public bool useEnvVariableProxy = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("HTTP_PROXY"));
+        public bool useEnvVariableProxy = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("HTTP_PROXY"));
 
         /// <summary>
         /// Get prepared HttpClient with correct system proxy settings
