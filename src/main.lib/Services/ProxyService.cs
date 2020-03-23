@@ -61,8 +61,8 @@ namespace PKISharp.WACS.Services
                                     new WebProxy() : 
                                     new WebProxy(_settings.Proxy.Url);
                 var httpProxy = Environment.GetEnvironmentVariable("HTTP_PROXY");
-                _log.Information("HTTP_PROXY variable is:{httpProxy}",httpProxy);
-                if(useEnvVariableProxy){
+                _log.Information("HTTP_PROXY variable is:{httpProxy} and use environment proxy:{useEnvVariableProxy}",httpProxy,useEnvVariableProxy);
+                if(useEnvVariableProxy && !string.IsNullOrEmpty(httpProxy)){
                     bool isEnvAuthentication = httpProxy.Contains("@");
                     proxy = new WebProxy(httpProxy);
                     if(isEnvAuthentication){
