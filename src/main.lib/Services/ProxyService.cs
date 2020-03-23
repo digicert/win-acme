@@ -65,7 +65,8 @@ namespace PKISharp.WACS.Services
                 _log.Information("HTTP_PROXY variable is:{httpProxy} and use environment proxy:{useEnvVariableProxy}",httpProxy,useEnvVariableProxy);
                 if(useEnvVariableProxy && !string.IsNullOrEmpty(httpProxy)){
                     bool isEnvAuthentication = httpProxy.Contains("@");
-                    proxy = new WebProxy(httpProxy);
+                    _log.Information("Creatingproxy using HTTP_PROXY variable");
+                    proxy = new WebProxy();
                     if(isEnvAuthentication){
                         _log.Information("Setting environment authentication parameters");
                         var protocol = httpProxy.Substring(0,httpProxy.LastIndexOf("//")+2);
@@ -75,13 +76,12 @@ namespace PKISharp.WACS.Services
                         var password = usernamePassword.Substring(usernamePassword.LastIndexOf(":")+1,usernamePassword.Length-usernamePassword.LastIndexOf(":")-1);
                         httpProxy = String.Format("{0}{1}",protocol,ipAndPort);
                         _log.Information("Setting proxy {httpProxy}",httpProxy);
-                        proxy.Address = new Uri(httpProxy);
                         if (!string.IsNullOrWhiteSpace(username)){
                             proxy.Credentials = new NetworkCredential(username,password);
                         }                      
                                             
                     }
-                    
+                    proxy.Address = new Uri(httpProxy);
                     
                 }else if(string.IsNullOrEmpty(_settings.Proxy.Url) ){
                     proxy = new WebProxy();
