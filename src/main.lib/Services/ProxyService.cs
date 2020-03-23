@@ -58,12 +58,13 @@ namespace PKISharp.WACS.Services
                 var proxy = UseSystemProxy ? 
                                 null : 
                                 string.IsNullOrEmpty(_settings.Proxy.Url) ? 
-                                    new WebProxy() : 
+                                    null : 
                                     new WebProxy(_settings.Proxy.Url);
+
                 var httpProxy = Environment.GetEnvironmentVariable("HTTP_PROXY");
                 useEnvVariableProxy = !string.IsNullOrEmpty(httpProxy);
                 _log.Information("HTTP_PROXY variable is:{httpProxy} and use environment proxy:{useEnvVariableProxy}",httpProxy,useEnvVariableProxy);
-                if(useEnvVariableProxy && !string.IsNullOrEmpty(httpProxy)){
+                if(null==proxy && useEnvVariableProxy && !string.IsNullOrEmpty(httpProxy)){
                     bool isEnvAuthentication = httpProxy.Contains("@");
                     _log.Information("Creatingproxy using HTTP_PROXY variable");
                     proxy = new WebProxy();
@@ -83,10 +84,6 @@ namespace PKISharp.WACS.Services
                     }
                     proxy.Address = new Uri(httpProxy);
                     
-                }else if(string.IsNullOrEmpty(_settings.Proxy.Url) ){
-                    proxy = new WebProxy();
-                }else{
-                    proxy = new WebProxy(_settings.Proxy.Url);
                 }                                    ;
                 if (proxy != null && !useEnvVariableProxy)
                 {
