@@ -57,7 +57,7 @@ namespace PKISharp.WACS.Services
             if (_proxy == null)
             {
                 var proxy = UseSystemProxy ? 
-                                null : useEnvVariableProxy ? getEnvProxy():
+                                null : useEnvVariableProxy?getEnvProxy():
                                 string.IsNullOrEmpty(_settings.Proxy.Url) ? 
                                     new WebProxy() : 
                                     new WebProxy(_settings.Proxy.Url);
@@ -67,6 +67,7 @@ namespace PKISharp.WACS.Services
                     var proxyUrl = proxy.GetProxy(testUrl);
 
                     if (!string.IsNullOrWhiteSpace(_settings.Proxy.Username))
+                    
                     {
                         proxy.Credentials = new NetworkCredential(
                             _settings.Proxy.Username,

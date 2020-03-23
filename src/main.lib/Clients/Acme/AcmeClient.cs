@@ -251,10 +251,19 @@ namespace PKISharp.WACS.Clients.Acme
         {
             using var httpClient = _proxyService.GetHttpClient();
             httpClient.BaseAddress = _settings.BaseUri;
+             ServiceDirectory dir = new ServiceDirectory();
+            _log.Debug("BaseUrl:{url} DirectoryUrl:{url2}", _settings.BaseUri.ToString(), _settings.DirectoryUri.ToString());
+            try
+            {
+                dir.Directory = _settings.DirectoryUri.ToString().Split(new string[] { _settings.BaseUri.ToString() }, StringSplitOptions.None)[1];
+            }catch(Exception)
+            {
+                _log.Error("Directory url not specified. Using default  base url");
+            }
             try
             {
                 _log.Verbose("SecurityProtocol setting: {setting}", System.Net.ServicePointManager.SecurityProtocol);
-                _ = await httpClient.GetStringAsync("directory");
+                _ = await httpClient.GetStringAsync(dir.Directory);
             }
             catch (Exception)
             {
@@ -264,7 +273,7 @@ namespace PKISharp.WACS.Clients.Acme
                 altClient.BaseAddress = _settings.BaseUri;
                 try
                 {
-                    _ = await altClient.GetStringAsync("directory");
+                    _ = await altClient.GetStringAsync(dir.Directory);
                 }
                 catch (Exception ex)
                 {
