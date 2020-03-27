@@ -263,6 +263,7 @@ namespace PKISharp.WACS.Clients.Acme
             try
             {
                 _log.Verbose("SecurityProtocol setting: {setting}", System.Net.ServicePointManager.SecurityProtocol);
+                _log.Verbose("Directory: {dir}", dir.Directory);
                 _ = await httpClient.GetStringAsync(dir.Directory);
             }
             catch (Exception)
